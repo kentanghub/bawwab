@@ -129,6 +129,82 @@ class PluginManager {
         isEnabled: true
       },
       {
+        id: 'openai',
+        alias: 'oa',
+        name: 'OpenAI',
+        type: 'apikey',
+        baseUrl: 'https://api.openai.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxTokens: 16384, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.005, costPer1kOutput: 0.015 },
+          { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, maxTokens: 16384, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.00015, costPer1kOutput: 0.0006 },
+          { id: 'text-embedding-3-small', name: 'Embedding 3 Small', contextWindow: 8191, maxTokens: 8191, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.00002, costPer1kOutput: 0 },
+          { id: 'text-embedding-3-large', name: 'Embedding 3 Large', contextWindow: 8191, maxTokens: 8191, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.00013, costPer1kOutput: 0 },
+          { id: 'dall-e-3', name: 'DALL-E 3', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 },
+          { id: 'tts-1', name: 'TTS-1', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.015, costPer1kOutput: 0 },
+          { id: 'whisper-1', name: 'Whisper-1', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.006, costPer1kOutput: 0 }
+        ],
+        capabilities: ['llm', 'embedding', 'image', 'imageToText', 'tts', 'stt'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.99,
+        costPer1kTokens: 0.01,
+        isEnabled: true
+      },
+      {
+        id: 'pollinations',
+        alias: 'poll',
+        name: 'Pollinations AI',
+        type: 'free',
+        baseUrl: 'https://image.pollinations.ai',
+        authType: 'none',
+        models: [
+          { id: 'flux', name: 'Flux', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 },
+          { id: 'turbo', name: 'Turbo', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 }
+        ],
+        capabilities: ['image'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0,
+        isEnabled: true
+      },
+      {
+        id: 'jina',
+        alias: 'jn',
+        name: 'Jina AI',
+        type: 'apikey',
+        baseUrl: 'https://r.jina.ai/http',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'jina-embeddings-v3', name: 'Jina Embeddings v3', contextWindow: 8192, maxTokens: 8192, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.00002, costPer1kOutput: 0 }
+        ],
+        capabilities: ['embedding', 'webFetch'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.00002,
+        isEnabled: true
+      },
+      {
+        id: 'tavily',
+        alias: 'tv',
+        name: 'Tavily Search',
+        type: 'apikey',
+        baseUrl: 'https://api.tavily.com',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [],
+        capabilities: ['webSearch'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0,
+        isEnabled: true
+      },
+      {
         id: 'anthropic',
         alias: 'anth',
         name: 'Anthropic',
