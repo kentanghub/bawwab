@@ -152,6 +152,7 @@ export interface RequestLog {
   tokensIn: number;
   tokensOut: number;
   cost: number;
+  cacheHit?: boolean;
   error?: string;
   userAgent?: string;
   clientIp?: string;

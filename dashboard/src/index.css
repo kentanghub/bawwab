@@ -12,6 +12,12 @@
   }
 }
 
+@layer utilities {
+  .bg-gray-850 {
+    background-color: #1f1f2e;
+  }
+}
+
 @layer components {
   .card {
     @apply bg-gray-900 border border-gray-800 rounded-xl p-6;

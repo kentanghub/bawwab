@@ -1,7 +1,21 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { pluginManager } from '../plugins/manager.js';
 import { healthMonitor } from '../services/health-monitor.js';
 import { metricsCollector } from '../services/metrics.js';
+
+// Auth middleware - verifies JWT token
+async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    await request.jwtVerify();
+    // Check if user has admin role
+    const payload = request.user as any;
+    if (payload.role !== 'admin') {
+      return reply.status(403).send({ error: 'Forbidden - Admin access required' });
+    }
+  } catch {
+    return reply.status(401).send({ error: 'Unauthorized - Valid JWT token required' });
+  }
+}
 
 export async function providerRoutes(app: FastifyInstance) {
   app.get('/', async () => {
@@ -50,6 +64,9 @@ export async function providerRoutes(app: FastifyInstance) {
 }
 
 export async function adminRoutes(app: FastifyInstance) {
+  // Apply auth middleware to all admin routes
+  app.addHook('preHandler', requireAuth);
+
   app.get('/metrics', async () => {
     return {
       stats: metricsCollector.getStats(),
@@ -60,6 +77,21 @@ export async function adminRoutes(app: FastifyInstance) {
   app.get('/logs', async (request) => {
     const { limit = '100' } = request.query as { limit?: string };
     return { logs: metricsCollector.getRecentLogs(parseInt(limit)) };
+  });
+
+  // Token optimizer config endpoint
+  app.get('/config/token-optimizer', async () => {
+    // In a real implementation, this would return the current config
+    return {
+      config: {
+        enabled: true,
+        compressionLevel: 'medium',
+        deduplicateToolResults: true,
+        slidingWindowEnabled: true,
+        maxContextTokens: 128000,
+        semanticChunking: true
+      }
+    };
   });
 }
 

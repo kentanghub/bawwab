@@ -1,22 +1,30 @@
 import { useEffect } from 'react';
 import { useStore } from '../stores/app';
-import { TrendingUp, Zap, DollarSign, Activity, Server } from 'lucide-react';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { TrendingUp, Zap, DollarSign, Activity, Server, Wifi, WifiOff } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 
 export function Dashboard() {
   const { providers, metrics, setProviders, setMetrics } = useStore();
+  const { wsStatus } = useWebSocket();
 
+  // Still poll providers via HTTP (more complex data structure)
   useEffect(() => {
     fetchProviders();
-    fetchMetrics();
-    const interval = setInterval(() => {
-      fetchProviders();
-      fetchMetrics();
-    }, 5000);
+    const interval = setInterval(fetchProviders, 10000); // Poll every 10s instead of 5s
     return () => clearInterval(interval);
   }, []);
+  
+  // Fallback: fetch metrics via HTTP if WebSocket is disconnected
+  useEffect(() => {
+    if (wsStatus.metrics === 'connected') return;
+    
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 5000);
+    return () => clearInterval(interval);
+  }, [wsStatus.metrics]);
 
   const fetchProviders = async () => {
     try {
@@ -80,6 +88,20 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Connection Status */}
+      <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-850">
+          {wsStatus.metrics === 'connected' ? (
+            <Wifi className="w-3 h-3 text-emerald-400" />
+          ) : (
+            <WifiOff className="w-3 h-3 text-red-400" />
+          )}
+          <span className={`text-xs ${wsStatus.metrics === 'connected' ? 'text-emerald-400' : 'text-red-400'}`}>
+            {wsStatus.metrics === 'connected' ? 'Real-time' : 'Polling'}
+          </span>
+        </div>
+      </div>
+      
       {/* Stats Grid */}
       <div className="grid grid-cols-4 gap-6">
         {stats.map((stat) => {

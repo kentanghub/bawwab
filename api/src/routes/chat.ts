@@ -5,11 +5,53 @@ import { tokenOptimizer } from '../services/token-optimizer.js';
 import { cacheManager } from '../services/cache-manager.js';
 import { metricsCollector } from '../services/metrics.js';
 import { pluginManager } from '../plugins/manager.js';
+import { chatRequestSchema } from '../services/validator.js';
+import { createHash } from 'node:crypto';
 
 export async function chatRoutes(app: FastifyInstance) {
-  app.post('/chat/completions', async (request, reply) => {
+  app.post('/chat/completions', {
+    schema: {
+      body: {
+        type: 'object',
+        required: ['model', 'messages'],
+        properties: {
+          model: { type: 'string' },
+          messages: {
+            type: 'array',
+            items: {
+              type: 'object',
+              required: ['role', 'content'],
+              properties: {
+                role: { type: 'string', enum: ['system', 'user', 'assistant', 'tool'] },
+                content: { type: ['string', 'array', 'object'] }
+              }
+            }
+          },
+          temperature: { type: 'number', minimum: 0, maximum: 2 },
+          max_tokens: { type: 'number', minimum: 1 },
+          stream: { type: 'boolean' },
+          tools: { type: 'array' },
+          tool_choice: { type: ['string', 'object'] }
+        }
+      }
+    }
+  }, async (request, reply) => {
     const startTime = Date.now();
-    const body = request.body as ChatRequest;
+    
+    // 1. Validate request body with Zod
+    const parseResult = chatRequestSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({
+        error: 'Invalid request body',
+        details: parseResult.error.errors.map(e => ({
+          path: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    }
+    
+    const body = parseResult.data as ChatRequest;
+    const isStream = body.stream || false;
     
     try {
       const optimizedRequest = tokenOptimizer.optimize(body);
@@ -20,17 +62,54 @@ export async function chatRoutes(app: FastifyInstance) {
         return reply.status(404).send({ error: 'Provider not found' });
       }
 
-      if (!body.stream) {
-        const cacheKey = cacheManager.generateKey('chat', decision.providerId, decision.modelId, JSON.stringify(optimizedRequest.messages));
+      // 3. Generate hash-based cache key (not full JSON)
+      const cacheKeyHash = generateCacheHash(decision.providerId, decision.modelId, optimizedRequest.messages);
+      
+      if (!isStream) {
+        const cacheKey = cacheManager.generateKey('chat', cacheKeyHash);
         const cached = await cacheManager.get(cacheKey);
         if (cached) {
-          return reply.send(JSON.parse(cached));
+          const parsed = JSON.parse(cached);
+          metricsCollector.record({
+            id: crypto.randomUUID(),
+            timestamp: new Date(),
+            providerId: decision.providerId,
+            modelId: decision.modelId,
+            endpoint: '/v1/chat/completions',
+            statusCode: 200,
+            latencyMs: Date.now() - startTime,
+            tokensIn: parsed.usage?.prompt_tokens || estimateTokens(optimizedRequest.messages),
+            tokensOut: parsed.usage?.completion_tokens || 0,
+            cost: 0, // cached = free
+            cacheHit: true,
+            userAgent: request.headers['user-agent']?.toString(),
+            clientIp: request.ip
+          });
+          return reply.send(parsed);
         }
       }
 
-      const response = await forwardToProvider(provider, decision.modelId, optimizedRequest, body.stream);
+      // 4. Forward with retry/fallback logic
+      const response = await forwardWithFallback(
+        provider, 
+        decision, 
+        optimizedRequest, 
+        isStream
+      );
       
       const latency = Date.now() - startTime;
+      
+      // 2. Extract tokensOut from provider response
+      let tokensOut = 0;
+      let tokensIn = estimateTokens(optimizedRequest.messages);
+      let actualCost = decision.estimatedCost;
+      
+      if (!isStream && typeof response === 'object') {
+        tokensOut = response.usage?.completion_tokens || 0;
+        tokensIn = response.usage?.prompt_tokens || tokensIn;
+        actualCost = calculateActualCost(decision.providerId, decision.modelId, tokensIn, tokensOut);
+      }
+      
       metricsCollector.record({
         id: crypto.randomUUID(),
         timestamp: new Date(),
@@ -39,15 +118,15 @@ export async function chatRoutes(app: FastifyInstance) {
         endpoint: '/v1/chat/completions',
         statusCode: 200,
         latencyMs: latency,
-        tokensIn: estimateTokens(optimizedRequest.messages),
-        tokensOut: 0,
-        cost: decision.estimatedCost,
+        tokensIn,
+        tokensOut,
+        cost: actualCost,
         userAgent: request.headers['user-agent']?.toString(),
         clientIp: request.ip
       });
 
-      if (!body.stream && typeof response === 'object') {
-        const cacheKey = cacheManager.generateKey('chat', decision.providerId, decision.modelId, JSON.stringify(optimizedRequest.messages));
+      if (!isStream && typeof response === 'object') {
+        const cacheKey = cacheManager.generateKey('chat', cacheKeyHash);
         await cacheManager.set(cacheKey, JSON.stringify(response), 300);
       }
 
@@ -55,13 +134,24 @@ export async function chatRoutes(app: FastifyInstance) {
 
     } catch (error) {
       const latency = Date.now() - startTime;
+      
+      // Determine appropriate status code
+      let statusCode = 500;
+      if (error instanceof Error) {
+        if (error.message.includes('Provider error (4')) statusCode = 502;
+        if (error.message.includes('Provider error (5')) statusCode = 502;
+        if (error.message.includes('timeout')) statusCode = 504;
+        if (error.message.includes('No available providers')) statusCode = 503;
+        if (error.message.includes('All providers failed')) statusCode = 502;
+      }
+      
       metricsCollector.record({
         id: crypto.randomUUID(),
         timestamp: new Date(),
         providerId: 'unknown',
         modelId: body.model,
         endpoint: '/v1/chat/completions',
-        statusCode: 500,
+        statusCode,
         latencyMs: latency,
         tokensIn: 0,
         tokensOut: 0,
@@ -71,8 +161,8 @@ export async function chatRoutes(app: FastifyInstance) {
         clientIp: request.ip
       });
 
-      return reply.status(500).send({
-        error: 'Internal server error',
+      return reply.status(statusCode).send({
+        error: statusCode === 502 ? 'Bad Gateway' : statusCode === 503 ? 'Service Unavailable' : 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -106,6 +196,63 @@ export async function chatRoutes(app: FastifyInstance) {
   });
 }
 
+// 4. Retry with fallback to other providers
+async function forwardWithFallback(
+  primaryProvider: any, 
+  decision: any,
+  request: ChatRequest, 
+  stream: boolean
+): Promise<any> {
+  const providers = [primaryProvider];
+  
+  // Add fallback providers (same model or compatible)
+  const fallbackProviders = pluginManager.getEnabledProviders()
+    .filter(p => p.id !== primaryProvider.id)
+    .filter(p => p.healthStatus.status !== 'unhealthy')
+    .filter(p => p.healthStatus.consecutiveFailures < 3)
+    .slice(0, 2); // Max 2 fallbacks
+  
+  providers.push(...fallbackProviders);
+  
+  let lastError: Error | null = null;
+  
+  for (const provider of providers) {
+    try {
+      // Find matching model on fallback provider
+      let modelId = decision.modelId;
+      const matchingModel = provider.models.find((m: any) => m.id === modelId);
+      if (!matchingModel && provider.models.length > 0) {
+        // Use first available model as fallback
+        modelId = provider.models[0].id;
+      }
+      
+      const result = await forwardToProvider(provider, modelId, request, stream);
+      
+      // Update provider success rate
+      await pluginManager.updateProvider(provider.id, {
+        successRate: Math.min(1, (provider.successRate || 0.9) + 0.02)
+      });
+      
+      return result;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      
+      // Mark provider as having a failure
+      await pluginManager.updateProvider(provider.id, {
+        healthStatus: {
+          ...provider.healthStatus,
+          consecutiveFailures: provider.healthStatus.consecutiveFailures + 1
+        },
+        successRate: Math.max(0, (provider.successRate || 0.9) - 0.05)
+      });
+      
+      console.warn(`[Fallback] Provider ${provider.id} failed: ${lastError.message}. Trying next...`);
+    }
+  }
+  
+  throw new Error(`All providers failed. Last error: ${lastError?.message || 'Unknown'}`);
+}
+
 async function forwardToProvider(provider: any, modelId: string, request: ChatRequest, stream: boolean = false): Promise<any> {
   const apiKey = process.env[`${provider.id.toUpperCase()}_API_KEY`] || '';
   
@@ -124,31 +271,40 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-  try {
-    const response = await fetch(`${provider.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
+  // Retry logic: 2 attempts per provider
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await fetch(`${provider.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
 
-    clearTimeout(timeout);
+      clearTimeout(timeout);
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Provider error (${response.status}): ${error}`);
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Provider error (${response.status}): ${error}`);
+      }
+
+      if (stream) {
+        return response.body;
+      }
+
+      return await response.json();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt === 0) {
+        console.warn(`[Retry] Provider ${provider.id} attempt 1 failed, retrying...`);
+        await new Promise(r => setTimeout(r, 500)); // 500ms backoff
+      }
     }
-
-    if (stream) {
-      // Return the raw body for streaming
-      return response.body;
-    }
-
-    return await response.json();
-  } catch (err) {
-    clearTimeout(timeout);
-    throw err;
   }
+  
+  clearTimeout(timeout);
+  throw lastError;
 }
 
 function estimateTokens(messages: Message[]): number {
@@ -165,4 +321,23 @@ function estimateTokens(messages: Message[]): number {
     }
   }
   return Math.ceil(chars / 4);
+}
+
+function calculateActualCost(providerId: string, modelId: string, tokensIn: number, tokensOut: number): number {
+  const provider = pluginManager.getProvider(providerId);
+  if (!provider) return 0;
+  
+  const model = provider.models.find(m => m.id === modelId);
+  if (!model) return 0;
+  
+  const inputCost = (tokensIn / 1000) * model.costPer1kInput;
+  const outputCost = (tokensOut / 1000) * model.costPer1kOutput;
+  
+  return inputCost + outputCost;
+}
+
+// 3. Generate short hash-based cache key
+function generateCacheHash(providerId: string, modelId: string, messages: Message[]): string {
+  const content = JSON.stringify({ providerId, modelId, messages });
+  return createHash('sha256').update(content).digest('hex').slice(0, 32);
 }

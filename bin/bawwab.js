@@ -84,8 +84,8 @@ async function startDashboard() {
   console.log('🎨 Starting Dashboard...');
   
   const handler = (req, res) => {
-    // API proxy
-    if (req.url.startsWith('/api/') || req.url.startsWith('/v1/')) {
+    // API proxy - includes /api/, /v1/, /ws/, /docs
+    if (req.url.startsWith('/api/') || req.url.startsWith('/v1/') || req.url.startsWith('/ws/') || req.url.startsWith('/docs')) {
       proxyRequest(req, res);
       return;
     }
