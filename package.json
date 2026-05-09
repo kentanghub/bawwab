@@ -1,0 +1,21 @@
+{
+  "name": "bawwab",
+  "version": "0.1.0",
+  "description": "Bawwab — Intelligent AI Gateway with Advanced Token Optimization",
+  "private": true,
+  "workspaces": [
+    "api",
+    "dashboard",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
+  },
+  "packageManager": "npm@10"
+}
