@@ -2,6 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import type { ChatRequest, Message } from '../types/index.js';
 import { intelligentRouter } from '../services/intelligent-router.js';
 import { tokenOptimizer } from '../services/token-optimizer.js';
+import { toolCompressor } from '../services/tool-compressor.js';
+import { formatTranslator } from '../services/format-translator.js';
+import { keyManager } from '../services/key-manager.js';
+import { smartFallback } from '../services/smart-fallback.js';
+import { debugLogger } from '../services/debug-logger.js';
 import { cacheManager } from '../services/cache-manager.js';
 import { metricsCollector } from '../services/metrics.js';
 import { prometheusMetrics } from '../services/prometheus.js';
@@ -54,10 +59,23 @@ export async function chatRoutes(app: FastifyInstance) {
     
     const body = parseResult.data as ChatRequest;
     const isStream = body.stream || false;
+    const cavemanMode = request.headers['x-caveman-mode'] === 'true';
+    const debugMode = request.headers['x-debug-mode'] === 'true' || debugLogger.isEnabled();
+    if (debugMode) debugLogger.setEnabled(true);
+    
+    const debugEntryId = crypto.randomUUID();
+    let decision: any = null;
     
     try {
-      const optimizedRequest = tokenOptimizer.optimize(body);
-      const decision = await intelligentRouter.route(optimizedRequest);
+      let optimizedRequest = tokenOptimizer.optimize(body);
+      
+      // Apply tool output compression before routing
+      optimizedRequest = {
+        ...optimizedRequest,
+        messages: toolCompressor.compressMessages(optimizedRequest.messages)
+      };
+      
+      decision = await intelligentRouter.route(optimizedRequest);
       const provider = pluginManager.getProvider(decision.providerId);
       
       if (!provider) {
@@ -91,12 +109,12 @@ export async function chatRoutes(app: FastifyInstance) {
         }
       }
 
-      // 4. Forward with retry/fallback logic
       const response = await forwardWithFallback(
         provider,
         decision,
         optimizedRequest,
-        isStream
+        isStream,
+        cavemanMode
       );
 
       const latency = Date.now() - startTime;
@@ -170,6 +188,24 @@ export async function chatRoutes(app: FastifyInstance) {
         await cacheManager.set(cacheKey, JSON.stringify(response), 300);
       }
 
+      // Debug logging
+      debugLogger.log({
+        id: debugEntryId,
+        timestamp: new Date(),
+        method: 'POST',
+        path: '/chat/completions',
+        headers: Object.fromEntries(Object.entries(request.headers).map(([k,v]) => [k, String(v)])),
+        requestBody: body,
+        providerId: decision?.providerId,
+        modelId: decision?.modelId,
+        responseStatus: 200,
+        responseBody: isStream ? undefined : response,
+        latencyMs: Date.now() - startTime,
+        format: formatTranslator.detectFormat(decision?.providerId || ''),
+        cavemanMode,
+        cacheHit: false,
+      });
+
       return reply.send(response);
 
     } catch (error) {
@@ -201,11 +237,38 @@ export async function chatRoutes(app: FastifyInstance) {
         clientIp: request.ip
       });
 
+      // Debug logging for errors
+      debugLogger.log({
+        id: debugEntryId,
+        timestamp: new Date(),
+        method: 'POST',
+        path: '/chat/completions',
+        headers: Object.fromEntries(Object.entries(request.headers).map(([k,v]) => [k, String(v)])),
+        requestBody: body,
+        providerId: decision?.providerId,
+        modelId: decision?.modelId,
+        responseStatus: statusCode,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        latencyMs: Date.now() - startTime,
+        format: formatTranslator.detectFormat(decision?.providerId || ''),
+        cavemanMode,
+        cacheHit: false,
+      });
+
       return reply.status(statusCode).send({
         error: statusCode === 502 ? 'Bad Gateway' : statusCode === 503 ? 'Service Unavailable' : 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  });
+
+  app.get('/debug/logs', async (request, reply) => {
+    const auth = request.headers['x-api-key'];
+    if (auth !== process.env.ADMIN_API_KEY) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+    const limit = parseInt((request.query as any)['limit'] as string) || 50;
+    return { logs: debugLogger.getLogs(limit), stats: debugLogger.getStats() };
   });
 
   app.get('/models', async () => {
@@ -241,36 +304,38 @@ async function forwardWithFallback(
   primaryProvider: any, 
   decision: any,
   request: ChatRequest, 
-  stream: boolean
+  stream: boolean,
+  cavemanMode: boolean = false
 ): Promise<any> {
-  const providers = [primaryProvider];
-  
-  // Add fallback providers (same model or compatible)
-  const fallbackProviders = pluginManager.getEnabledProviders()
-    .filter(p => p.id !== primaryProvider.id)
-    .filter(p => p.healthStatus.status !== 'unhealthy')
-    .filter(p => p.healthStatus.consecutiveFailures < 3)
-    .slice(0, 2); // Max 2 fallbacks
-  
-  providers.push(...fallbackProviders);
-  
+  // Build smart 3-tier fallback plan
+  const plan = smartFallback.buildFallbackPlan(
+    primaryProvider,
+    decision.modelId,
+    request.model
+  );
+  smartFallback.logDecision(plan, request.model);
+
+  const providers = plan.providers;
+  if (providers.length === 0) {
+    throw new Error('No available providers');
+  }
+
   let lastError: Error | null = null;
   
   for (const provider of providers) {
     try {
-      // Find matching model on fallback provider
-      let modelId = decision.modelId;
-      const matchingModel = provider.models.find((m: any) => m.id === modelId);
-      if (!matchingModel && provider.models.length > 0) {
-        // Use first available model as fallback
-        modelId = provider.models[0].id;
-      }
+      // Use smart fallback model mapping
+      let modelId = plan.modelMapping.get(provider.id) || decision.modelId;
       
-      const result = await forwardToProvider(provider, modelId, request, stream);
+      const result = await forwardToProvider(provider, modelId, request, stream, cavemanMode);
       
       // Update provider success rate
       await pluginManager.updateProvider(provider.id, {
-        successRate: Math.min(1, (provider.successRate || 0.9) + 0.02)
+        successRate: Math.min(1, (provider.successRate || 0.9) + 0.02),
+        healthStatus: {
+          ...provider.healthStatus,
+          consecutiveFailures: 0
+        }
       });
       
       return result;
@@ -293,9 +358,11 @@ async function forwardWithFallback(
   throw new Error(`All providers failed. Last error: ${lastError?.message || 'Unknown'}`);
 }
 
-async function forwardToProvider(provider: any, modelId: string, request: ChatRequest, stream: boolean = false): Promise<any> {
+async function forwardToProvider(provider: any, modelId: string, request: ChatRequest, stream: boolean = false, cavemanMode: boolean = false): Promise<any> {
   const envKey = `${provider.id.toUpperCase()}_API_KEY`;
-  const apiKey = process.env[envKey];
+  
+  // Use keyManager for multi-account round-robin
+  const apiKey = keyManager.getNextKey(provider.id);
   
   if (!apiKey && provider.authType !== 'none') {
     throw new Error(`API key not configured for provider "${provider.name}". Set the ${envKey} environment variable.`);
@@ -313,7 +380,25 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
     headers[provider.authHeader || 'Authorization'] = safeApiKey;
   }
 
-  const body = { ...request, model: modelId, stream };
+  // Detect provider format and translate request
+  const targetFormat = formatTranslator.detectFormat(provider.id);
+  const translatedRequest = formatTranslator.translateRequest(
+    { ...request, model: modelId, stream },
+    targetFormat,
+    { addCavemanPrompt: cavemanMode }
+  );
+
+  // Determine correct endpoint for provider format
+  let endpoint = '/chat/completions';
+  if (targetFormat === 'claude') {
+    endpoint = '/messages';
+    headers['anthropic-version'] = '2023-06-01';
+  } else if (targetFormat === 'gemini') {
+    // Gemini uses a different URL pattern with API key as query param
+    endpoint = `/models/${modelId}:generateContent`;
+  }
+
+  const body = translatedRequest;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
@@ -322,7 +407,15 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
   let lastError: Error | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const response = await fetch(`${provider.baseUrl}/chat/completions`, {
+      let url = `${provider.baseUrl}${endpoint}`;
+      
+      // Gemini requires API key as query param
+      if (targetFormat === 'gemini') {
+        url = `${provider.baseUrl}${endpoint}?key=${safeApiKey}`;
+        delete headers['Authorization'];
+      }
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
@@ -340,7 +433,10 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
         return response.body;
       }
 
-      return await response.json();
+      const nativeResponse = await response.json();
+      
+      // Translate response back to OpenAI format
+      return formatTranslator.translateResponse(nativeResponse, targetFormat);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt === 0) {

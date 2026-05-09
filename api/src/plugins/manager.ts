@@ -311,6 +311,287 @@ class PluginManager {
         successRate: 0.99,
         costPer1kTokens: 0.01,
         isEnabled: true
+      },
+      // New providers (Week 1 expansion)
+      {
+        id: 'groq',
+        alias: 'gq',
+        name: 'Groq',
+        type: 'apikey',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', contextWindow: 128000, maxTokens: 32768, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.00059, costPer1kOutput: 0.00079 },
+          { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', contextWindow: 32768, maxTokens: 32768, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.00024, costPer1kOutput: 0.00024 },
+          { id: 'gemma2-9b-it', name: 'Gemma 2 9B', contextWindow: 8192, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.0002, costPer1kOutput: 0.0002 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.98,
+        costPer1kTokens: 0.0005,
+        isEnabled: true
+      },
+      {
+        id: 'xai',
+        alias: 'xai',
+        name: 'xAI',
+        type: 'apikey',
+        baseUrl: 'https://api.x.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'grok-2', name: 'Grok 2', contextWindow: 131072, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.002, costPer1kOutput: 0.01 },
+          { id: 'grok-2-vision', name: 'Grok 2 Vision', contextWindow: 32768, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.002, costPer1kOutput: 0.01 }
+        ],
+        capabilities: ['llm', 'imageToText'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.005,
+        isEnabled: true
+      },
+      {
+        id: 'mistral',
+        alias: 'ms',
+        name: 'Mistral AI',
+        type: 'apikey',
+        baseUrl: 'https://api.mistral.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'mistral-large-latest', name: 'Mistral Large', contextWindow: 128000, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.002, costPer1kOutput: 0.006 },
+          { id: 'mistral-medium-latest', name: 'Mistral Medium', contextWindow: 32000, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0006, costPer1kOutput: 0.0018 },
+          { id: 'codestral-latest', name: 'Codestral', contextWindow: 32000, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0002, costPer1kOutput: 0.0006 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.002,
+        isEnabled: true
+      },
+      {
+        id: 'together',
+        alias: 'tg',
+        name: 'Together AI',
+        type: 'apikey',
+        baseUrl: 'https://api.together.xyz/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', name: 'Llama 3.3 70B Turbo', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.00088, costPer1kOutput: 0.00088 },
+          { id: 'mistralai/Mixtral-8x22B-Instruct-v0.1', name: 'Mixtral 8x22B', contextWindow: 65536, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0012, costPer1kOutput: 0.0012 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'fireworks',
+        alias: 'fw',
+        name: 'Fireworks AI',
+        type: 'apikey',
+        baseUrl: 'https://api.fireworks.ai/inference/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'accounts/fireworks/models/llama-v3p3-70b-instruct', name: 'Llama 3.3 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0009, costPer1kOutput: 0.0009 },
+          { id: 'accounts/fireworks/models/deepseek-v3', name: 'DeepSeek V3', contextWindow: 64000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: true, costPer1kInput: 0.0009, costPer1kOutput: 0.0009 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'cohere',
+        alias: 'ch',
+        name: 'Cohere',
+        type: 'apikey',
+        baseUrl: 'https://api.cohere.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'command-r-plus', name: 'Command R+', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.003, costPer1kOutput: 0.015 },
+          { id: 'command-r', name: 'Command R', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0005, costPer1kOutput: 0.0015 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.005,
+        isEnabled: true
+      },
+      {
+        id: 'perplexity',
+        alias: 'pp',
+        name: 'Perplexity',
+        type: 'apikey',
+        baseUrl: 'https://api.perplexity.ai',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'llama-3.1-sonar-large-128k-online', name: 'Sonar Large 128K', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.001, costPer1kOutput: 0.001 },
+          { id: 'llama-3.1-sonar-small-128k-online', name: 'Sonar Small 128K', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.0002, costPer1kOutput: 0.0002 }
+        ],
+        capabilities: ['llm', 'webSearch'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'nvidia',
+        alias: 'nv',
+        name: 'NVIDIA',
+        type: 'apikey',
+        baseUrl: 'https://integrate.api.nvidia.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'Nemotron 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0007, costPer1kOutput: 0.0007 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'kimi',
+        alias: 'km',
+        name: 'Kimi',
+        type: 'apikey',
+        baseUrl: 'https://api.moonshot.cn/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'kimi-k2', name: 'Kimi K2', contextWindow: 256000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: true, costPer1kInput: 0.001, costPer1kOutput: 0.003 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.002,
+        isEnabled: true
+      },
+      {
+        id: 'minimax',
+        alias: 'mm',
+        name: 'MiniMax',
+        type: 'apikey',
+        baseUrl: 'https://api.minimaxi.chat/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'MiniMax-Text-01', name: 'MiniMax Text', contextWindow: 1000000, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0001, costPer1kOutput: 0.0001 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.0002,
+        isEnabled: true
+      },
+      {
+        id: 'siliconflow',
+        alias: 'sf',
+        name: 'SiliconFlow',
+        type: 'apikey',
+        baseUrl: 'https://api.siliconflow.cn/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3', contextWindow: 64000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: true, costPer1kInput: 0.00014, costPer1kOutput: 0.00028 },
+          { id: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen 2.5 72B', contextWindow: 32768, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0004, costPer1kOutput: 0.0004 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.0005,
+        isEnabled: true
+      },
+      {
+        id: 'cerebras',
+        alias: 'cb',
+        name: 'Cerebras',
+        type: 'apikey',
+        baseUrl: 'https://api.cerebras.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'llama-3.3-70b', name: 'Llama 3.3 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0006, costPer1kOutput: 0.0006 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'nebius',
+        alias: 'nb',
+        name: 'Nebius AI',
+        type: 'apikey',
+        baseUrl: 'https://api.studio.nebius.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0003, costPer1kOutput: 0.0003 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.0005,
+        isEnabled: true
+      },
+      {
+        id: 'chutes',
+        alias: 'ct',
+        name: 'Chutes',
+        type: 'apikey',
+        baseUrl: 'https://llm.chutes.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'chutesai/Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0002, costPer1kOutput: 0.0002 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.0003,
+        isEnabled: true
+      },
+      {
+        id: 'hyperbolic',
+        alias: 'hb',
+        name: 'Hyperbolic',
+        type: 'apikey',
+        baseUrl: 'https://api.hyperbolic.xyz/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'meta-llama/Meta-Llama-3.1-70B-Instruct', name: 'Llama 3.1 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0004, costPer1kOutput: 0.0004 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.0005,
+        isEnabled: true
       }
     ];
 
