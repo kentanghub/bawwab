@@ -58,8 +58,33 @@ const OAUTH_CONFIGS: Record<string, OAuthConfig> = {
     deviceCodeUrl: 'https://github.com/login/device/code',
     tokenUrl: 'https://github.com/login/oauth/access_token',
     scope: 'read:user'
+  },
+  codex: {
+    clientId: process.env.OPENAI_OAUTH_CLIENT_ID || 'com.openai.codex',
+    clientSecret: process.env.OPENAI_OAUTH_CLIENT_SECRET,
+    deviceCodeUrl: 'https://api.openai.com/v1/oauth/device/code',
+    tokenUrl: 'https://api.openai.com/v1/oauth/token',
+    scope: 'api'
+  },
+  copilot: {
+    clientId: process.env.GITHUB_COPILOT_CLIENT_ID || 'Iv23li8EpHSJsPc0tY6u',
+    clientSecret: process.env.GITHUB_COPILOT_CLIENT_SECRET,
+    deviceCodeUrl: 'https://github.com/login/device/code',
+    tokenUrl: 'https://github.com/login/oauth/access_token',
+    scope: 'read:user gist repo'
+  },
+  qwen: {
+    clientId: process.env.QWEN_OAUTH_CLIENT_ID || 'qwen-dashscope',
+    clientSecret: process.env.QWEN_OAUTH_CLIENT_SECRET,
+    deviceCodeUrl: 'https://dashscope.aliyuncs.com/api/v1/oauth/device/code',
+    tokenUrl: 'https://dashscope.aliyuncs.com/api/v1/oauth/token',
+    scope: 'dashscope:all'
   }
 };
+
+// Token-only providers (no OAuth flow — users paste their own API keys)
+const TOKEN_PROVIDERS = ['cursor', 'cline', 'kiro', 'antigravity'];
+const tokenOnlyStore: Map<string, string> = new Map();
 
 // In-memory token store (use DB in production)
 const tokenStore: Map<string, OAuthToken> = new Map();
@@ -217,21 +242,31 @@ export class OAuthManager {
    * Check if provider has valid OAuth token
    */
   hasToken(provider: string): boolean {
+    if (TOKEN_PROVIDERS.includes(provider)) {
+      return tokenOnlyStore.has(provider);
+    }
     const token = tokenStore.get(provider);
     if (!token) return false;
     return new Date(Date.now() + 300000) <= token.expiresAt;
   }
 
   /**
-   * Get OAuth status for all providers
+   * Get OAuth + token status for all providers
    */
-  getStatus(): Record<string, { connected: boolean; expiresAt?: Date }> {
-    const result: Record<string, { connected: boolean; expiresAt?: Date }> = {};
+  getStatus(): Record<string, { connected: boolean; expiresAt?: Date; type: 'oauth' | 'token' }> {
+    const result: Record<string, { connected: boolean; expiresAt?: Date; type: 'oauth' | 'token' }> = {};
     for (const provider of Object.keys(OAUTH_CONFIGS)) {
       const token = tokenStore.get(provider);
       result[provider] = {
-        connected: this.hasToken(provider),
-        expiresAt: token?.expiresAt
+        connected: token ? new Date(Date.now() + 300000) <= token.expiresAt : false,
+        expiresAt: token?.expiresAt,
+        type: 'oauth'
+      };
+    }
+    for (const provider of TOKEN_PROVIDERS) {
+      result[provider] = {
+        connected: tokenOnlyStore.has(provider),
+        type: 'token'
       };
     }
     return result;
@@ -239,6 +274,25 @@ export class OAuthManager {
 
   getSupportedProviders(): string[] {
     return Object.keys(OAUTH_CONFIGS);
+  }
+
+  /**
+   * Token-only providers: store API key directly
+   */
+  setToken(provider: string, apiKey: string): void {
+    if (!TOKEN_PROVIDERS.includes(provider)) {
+      throw new Error(`Provider ${provider} does not support direct token entry`);
+    }
+    tokenOnlyStore.set(provider, apiKey);
+    logger.info(`[OAuth] Token stored for ${provider}`);
+  }
+
+  getToken(provider: string): string | undefined {
+    return tokenOnlyStore.get(provider);
+  }
+
+  getTokenOnlyProviders(): string[] {
+    return [...TOKEN_PROVIDERS];
   }
 }
 

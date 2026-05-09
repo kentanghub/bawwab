@@ -6,15 +6,49 @@ import { logger } from '../services/logger.js';
 const activePolls = new Map<string, NodeJS.Timeout>();
 
 export async function oauthRoutes(app: FastifyInstance) {
-  // Get supported OAuth providers
+  // Get supported OAuth providers (including token-only)
   app.get('/oauth/providers', async () => {
+    const oauthProviders = oauthManager.getSupportedProviders().map(id => ({
+      id,
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      type: 'oauth' as const,
+      connected: oauthManager.hasToken(id)
+    }));
+
+    const tokenProviders = oauthManager.getTokenOnlyProviders().map(id => ({
+      id,
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      type: 'token' as const,
+      connected: oauthManager.hasToken(id)
+    }));
+
     return {
-      providers: oauthManager.getSupportedProviders().map(id => ({
-        id,
-        name: id.charAt(0).toUpperCase() + id.slice(1),
-        connected: oauthManager.hasToken(id)
-      }))
+      providers: [...oauthProviders, ...tokenProviders]
     };
+  });
+
+  // Token-only provider: directly set API key
+  app.post('/oauth/:provider/token-entry', async (request, reply) => {
+    const { provider } = request.params as { provider: string };
+    const { apiKey } = request.body as { apiKey: string };
+
+    if (!apiKey) {
+      return reply.status(400).send({ error: 'apiKey is required' });
+    }
+
+    try {
+      oauthManager.setToken(provider, apiKey);
+      return {
+        success: true,
+        status: 'connected',
+        message: `${provider} API key stored successfully`
+      };
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Failed to store token',
+        message: (error as Error).message
+      });
+    }
   });
 
   // Step 1: Request device code
