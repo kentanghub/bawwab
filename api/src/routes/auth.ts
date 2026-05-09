@@ -1,11 +1,24 @@
 import type { FastifyInstance } from 'fastify';
 
 export async function authRoutes(app: FastifyInstance) {
-  app.post('/token', async (request, reply) => {
+  // Rate limit auth endpoints more strictly
+  app.post('/token', {
+    config: {
+      rateLimit: {
+        max: 10,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request, reply) => {
     const { apiKey } = request.body as { apiKey?: string };
     
-    if (!apiKey) {
+    if (!apiKey || typeof apiKey !== 'string') {
       return reply.status(400).send({ error: 'API key required' });
+    }
+    
+    // Prevent DoS from extremely long keys
+    if (apiKey.length > 1024) {
+      return reply.status(400).send({ error: 'API key too long' });
     }
     
     if (apiKey !== process.env.ADMIN_API_KEY) {

@@ -121,22 +121,34 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
 
   const body = { ...request, model: modelId, stream };
 
-  const response = await fetch(`${provider.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Provider error (${response.status}): ${error}`);
+  try {
+    const response = await fetch(`${provider.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Provider error (${response.status}): ${error}`);
+    }
+
+    if (stream) {
+      // Return the raw body for streaming
+      return response.body;
+    }
+
+    return await response.json();
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
   }
-
-  if (stream) {
-    return response.body;
-  }
-
-  return await response.json();
 }
 
 function estimateTokens(messages: Message[]): number {

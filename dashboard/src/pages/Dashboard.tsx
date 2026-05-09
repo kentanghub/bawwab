@@ -1,8 +1,8 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useStore } from '../stores/app';
 import { TrendingUp, Zap, DollarSign, Activity, Server } from 'lucide-react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
 } from 'recharts';
 
 export function Dashboard() {
@@ -37,9 +37,6 @@ export function Dashboard() {
       console.error('Failed to fetch metrics:', err);
     }
   };
-
-  const healthyProviders = providers.filter(p => p.health.status === 'healthy').length;
-  const totalProviders = providers.length;
 
   const stats = [
     {

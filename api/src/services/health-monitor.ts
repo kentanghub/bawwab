@@ -1,5 +1,5 @@
 import type { Provider, HealthStatus } from '../types/index.js';
-import { pluginManager } from './plugin-manager.js';
+import { pluginManager } from '../plugins/manager.js';
 
 class HealthMonitor {
   private running = false;
@@ -43,16 +43,34 @@ class HealthMonitor {
     const startTime = Date.now();
     
     try {
-      // Simple health check - HEAD request to base URL
+      // Simple health check - GET request to base URL (HEAD not supported by many APIs)
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
       
-      const response = await fetch(provider.baseUrl, {
-        method: 'HEAD',
-        signal: controller.signal
-      });
+      // Try models endpoint first, fallback to base URL
+      const healthUrls = [
+        `${provider.baseUrl}/models`,
+        provider.baseUrl
+      ];
+      
+      let response: Response | null = null;
+      for (const url of healthUrls) {
+        try {
+          response = await fetch(url, {
+            method: 'GET',
+            signal: controller.signal
+          });
+          if (response.status < 500) break;
+        } catch {
+          continue;
+        }
+      }
       
       clearTimeout(timeout);
+      
+      if (!response) {
+        throw new Error('No health endpoint responded');
+      }
       
       const latency = Date.now() - startTime;
       

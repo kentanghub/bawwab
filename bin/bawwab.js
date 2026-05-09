@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
-import { createServer } from 'http';
+import { createServer, request as httpRequest } from 'http';
 import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -141,7 +141,7 @@ function proxyRequest(req, res) {
     headers: { ...req.headers, host: `localhost:${API_PORT}` }
   };
   
-  const proxy = createServer().request(options, (proxyRes) => {
+  const proxy = httpRequest(options, (proxyRes) => {
     res.writeHead(proxyRes.statusCode, proxyRes.headers);
     proxyRes.pipe(res);
   });

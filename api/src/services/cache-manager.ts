@@ -1,9 +1,10 @@
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 
 class CacheManager {
   private redis: Redis | null = null;
   private connected = false;
   private memoryCache = new Map<string, { value: string; expiry: number }>();
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   async connect(): Promise<void> {
     const redisUrl = process.env.REDIS_URL;
@@ -29,12 +30,28 @@ class CacheManager {
         this.connected = false;
       }
     }
+    
+    // Start memory cache cleanup every 60s
+    this.cleanupInterval = setInterval(() => this.cleanupMemory(), 60000);
   }
 
   async disconnect(): Promise<void> {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
     if (this.redis) {
       await this.redis.quit();
       this.connected = false;
+    }
+  }
+  
+  private cleanupMemory(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.memoryCache) {
+      if (entry.expiry <= now) {
+        this.memoryCache.delete(key);
+      }
     }
   }
 

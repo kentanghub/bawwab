@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Check } from 'lucide-react';
 
 interface OptimizerConfig {

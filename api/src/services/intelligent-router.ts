@@ -1,5 +1,5 @@
 import type { ChatRequest, RouteDecision, Provider, Model } from '../types/index.js';
-import { pluginManager } from './plugin-manager.js';
+import { pluginManager } from '../plugins/manager.js';
 
 class IntelligentRouter {
   private initialized = false;

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FileText, Clock, AlertCircle } from 'lucide-react';
 
 interface Log {

@@ -6,6 +6,7 @@ import websocket from '@fastify/websocket';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import dotenv from 'dotenv';
+import crypto from 'node:crypto';
 import { pluginManager } from './plugins/manager.js';
 import { healthMonitor } from './services/health-monitor.js';
 import { tokenOptimizer } from './services/token-optimizer.js';
@@ -14,11 +15,15 @@ import { cacheManager } from './services/cache-manager.js';
 import { metricsCollector } from './services/metrics.js';
 import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
-import { providerRoutes } from './routes/providers.js';
-import { adminRoutes } from './routes/admin.js';
-import { wsRoutes } from './routes/websocket.js';
+import { providerRoutes, adminRoutes, wsRoutes } from './routes/providers.js';
 
 dotenv.config();
+
+// Security: require JWT_SECRET in production
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required in production');
+}
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomUUID();
 
 const app = Fastify({
   logger: {
@@ -31,8 +36,13 @@ const app = Fastify({
 });
 
 // Register plugins
-await app.register(cors, { origin: true, credentials: true });
-await app.register(jwt, { secret: process.env.JWT_SECRET || 'bawwab-dev-secret-change-me' });
+await app.register(cors, { 
+  origin: process.env.NODE_ENV === 'production' 
+    ? (process.env.CORS_ORIGIN || false) 
+    : true, 
+  credentials: true 
+});
+await app.register(jwt, { secret: JWT_SECRET });
 await app.register(rateLimit, {
   max: 100,
   timeWindow: '1 minute',
