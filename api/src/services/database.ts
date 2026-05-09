@@ -29,12 +29,14 @@ export function initDatabase(): Database.Database {
       error TEXT,
       user_agent TEXT,
       client_ip TEXT,
+      api_key TEXT,
       request_id TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON request_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_logs_provider ON request_logs(provider_id);
     CREATE INDEX IF NOT EXISTS idx_logs_endpoint ON request_logs(endpoint);
+    CREATE INDEX IF NOT EXISTS idx_logs_api_key ON request_logs(api_key);
 
     CREATE TABLE IF NOT EXISTS api_keys (
       id TEXT PRIMARY KEY,
@@ -74,8 +76,8 @@ export function closeDb(): void {
 export function insertLog(log: RequestLog): void {
   const stmt = getDb().prepare(`
     INSERT INTO request_logs 
-    (id, timestamp, provider_id, model_id, endpoint, status_code, latency_ms, tokens_in, tokens_out, cost, cache_hit, error, user_agent, client_ip)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (id, timestamp, provider_id, model_id, endpoint, status_code, latency_ms, tokens_in, tokens_out, cost, cache_hit, error, user_agent, client_ip, api_key)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   stmt.run(
@@ -92,7 +94,8 @@ export function insertLog(log: RequestLog): void {
     log.cacheHit ? 1 : 0,
     log.error || null,
     log.userAgent || null,
-    log.clientIp || null
+    log.clientIp || null,
+    log.apiKey || null
   );
 }
 

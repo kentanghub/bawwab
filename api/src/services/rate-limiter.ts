@@ -1,5 +1,10 @@
 import { getDb } from './database.js';
 
+interface RateLimitState {
+  count: number;
+  resetAt: number;
+}
+
 interface RateLimitResult {
   allowed: boolean;
   remaining: number;
@@ -17,40 +22,32 @@ interface QuotaResult {
 }
 
 const windowMs = 60 * 1000; // 1 minute window
+const rateLimitMap = new Map<string, RateLimitState>();
 
-export function checkRateLimit(keyHash: string): RateLimitResult {
-  const db = getDb();
+export function checkRateLimit(keyHash: string, limit: number = 60): RateLimitResult {
+  const now = Date.now();
+  const state = rateLimitMap.get(keyHash);
 
-  // Get key config
-  const keyRow = db.prepare('SELECT rate_limit FROM api_keys WHERE key_hash = ?').get(keyHash) as any;
-  if (!keyRow) {
-    return { allowed: false, remaining: 0, resetAt: 0, limit: 0 };
+  if (!state || state.resetAt <= now) {
+    // New window
+    const resetAt = Math.ceil(now / windowMs) * windowMs;
+    rateLimitMap.set(keyHash, { count: 1, resetAt });
+    return { allowed: true, remaining: limit - 1, resetAt, limit };
   }
 
-  const limit = keyRow.rate_limit || 60;
-  const now = Date.now();
-  const windowStart = Math.floor(now / windowMs) * windowMs;
-  const resetAt = windowStart + windowMs;
+  const remaining = Math.max(0, limit - state.count);
+  const allowed = state.count < limit;
 
-  // Count requests in current window from logs
-  const countRow = db.prepare(`
-    SELECT COUNT(*) as count FROM request_logs
-    WHERE timestamp >= datetime(?, 'unixepoch')
-      AND (client_ip = ? OR EXISTS (
-        SELECT 1 FROM api_keys WHERE key_hash = ?
-      ))
-  `).get(Math.floor(windowStart / 1000), keyHash, keyHash) as any;
-
-  const count = countRow?.count || 0;
-  const remaining = Math.max(0, limit - count);
-  const allowed = count < limit;
+  if (allowed) {
+    state.count++;
+  }
 
   return {
     allowed,
     remaining,
-    resetAt,
+    resetAt: state.resetAt,
     limit,
-    retryAfter: allowed ? undefined : Math.ceil((resetAt - now) / 1000)
+    retryAfter: allowed ? undefined : Math.ceil((state.resetAt - now) / 1000)
   };
 }
 
@@ -59,7 +56,7 @@ export function checkQuota(keyHash: string): QuotaResult {
 
   const keyRow = db.prepare('SELECT monthly_quota, monthly_usage, quota_reset_at FROM api_keys WHERE key_hash = ?').get(keyHash) as any;
   if (!keyRow) {
-    return { allowed: false, monthlyQuota: 0, monthlyUsage: 0, remaining: 0, resetAt: '' };
+    return { allowed: true, monthlyQuota: 999999, monthlyUsage: 0, remaining: 999999, resetAt: '' };
   }
 
   const now = new Date();
@@ -69,7 +66,6 @@ export function checkQuota(keyHash: string): QuotaResult {
 
   // Check if we need to reset monthly usage
   if (!resetAt || new Date(resetAt) < now) {
-    // Reset to next month
     const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
     resetAt = nextMonth.toISOString();
     usage = 0;
@@ -83,7 +79,7 @@ export function checkQuota(keyHash: string): QuotaResult {
   return { allowed, monthlyQuota: quota, monthlyUsage: usage, remaining, resetAt };
 }
 
-export function incrementUsage(keyHash: string, tokens: number = 0): void {
+export function incrementUsage(keyHash: string): void {
   const db = getDb();
   const now = new Date().toISOString();
   db.prepare(`

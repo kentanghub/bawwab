@@ -156,6 +156,7 @@ export interface RequestLog {
   error?: string;
   userAgent?: string;
   clientIp?: string;
+  apiKey?: string;
 }
 
 export interface Team {

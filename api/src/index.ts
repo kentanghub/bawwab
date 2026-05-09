@@ -62,7 +62,14 @@ app.addHook('preHandler', async (request, reply) => {
     return;
   }
 
-  const rl = checkRateLimit(apiKey);
+  const { getDb } = await import('./services/database.js');
+  const db = getDb();
+
+  // Get key row (including default limits if key not in DB)
+  const keyRow = db.prepare('SELECT rate_limit, monthly_quota FROM api_keys WHERE key_hash = ?').get(apiKey) as any;
+  const rateLimitVal = keyRow?.rate_limit || 60;
+
+  const rl = checkRateLimit(apiKey, rateLimitVal);
   if (!rl.allowed) {
     reply.header('X-RateLimit-Limit', rl.limit);
     reply.header('X-RateLimit-Remaining', 0);
