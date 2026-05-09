@@ -19,6 +19,7 @@ import { initDatabase, closeDb } from './services/database.js';
 import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
 import { capabilityRoutes } from './routes/capabilities.js';
+import { compareRoutes } from './routes/compare.js';
 import { providerRoutes, adminRoutes, wsRoutes } from './routes/providers.js';
 
 dotenv.config();
@@ -119,6 +120,7 @@ app.addHook('onReady', async () => {
 await app.register(authRoutes, { prefix: '/v1/auth' });
 await app.register(chatRoutes, { prefix: '/v1' });
 await app.register(capabilityRoutes, { prefix: '/v1' });
+await app.register(compareRoutes, { prefix: '/v1' });
 await app.register(providerRoutes, { prefix: '/v1/providers' });
 await app.register(adminRoutes, { prefix: '/v1/admin' });
 await app.register(wsRoutes, { prefix: '/ws' });

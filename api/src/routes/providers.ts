@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { pluginManager } from '../plugins/manager.js';
 import { healthMonitor } from '../services/health-monitor.js';
 import { metricsCollector } from '../services/metrics.js';
+import { getRecentLogs } from '../services/database.js';
 
 // Auth middleware - verifies JWT token
 async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
@@ -76,12 +77,11 @@ export async function adminRoutes(app: FastifyInstance) {
 
   app.get('/logs', async (request) => {
     const { limit = '100' } = request.query as { limit?: string };
-    return { logs: metricsCollector.getRecentLogs(parseInt(limit)) };
+    return { logs: getRecentLogs(parseInt(limit)) };
   });
 
   // Token optimizer config endpoint
   app.get('/config/token-optimizer', async () => {
-    // In a real implementation, this would return the current config
     return {
       config: {
         enabled: true,
@@ -118,6 +118,24 @@ export async function wsRoutes(app: FastifyInstance) {
         timestamp: Date.now()
       }));
     }, 10000);
+
+    connection.socket.on('close', () => clearInterval(interval));
+  });
+
+  // Real-time logs streaming
+  app.get('/logs', { websocket: true }, (connection) => {
+    let lastLogCount = 0;
+    const interval = setInterval(() => {
+      const logs = getRecentLogs(50);
+      if (logs.length !== lastLogCount) {
+        lastLogCount = logs.length;
+        connection.socket.send(JSON.stringify({
+          type: 'logs',
+          data: logs,
+          timestamp: Date.now()
+        }));
+      }
+    }, 2000);
 
     connection.socket.on('close', () => clearInterval(interval));
   });
