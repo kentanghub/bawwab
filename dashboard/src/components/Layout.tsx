@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Server, FileText, Settings, Activity,
-  Image, Scale, BrainCircuit, Zap, Gauge
+  Image, Scale, BrainCircuit, Zap, Gauge, Key, Shield
 } from 'lucide-react';
 
 const navItems = [
@@ -13,6 +13,8 @@ const navItems = [
   { path: '/providers', icon: Server, label: 'Providers' },
   { path: '/combos', icon: Zap, label: 'Combos' },
   { path: '/quota', icon: Gauge, label: 'Quota' },
+  { path: '/virtual-keys', icon: Key, label: 'API Keys' },
+  { path: '/advanced', icon: Shield, label: 'Advanced' },
   { path: '/logs', icon: FileText, label: 'Logs' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];

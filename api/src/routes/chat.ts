@@ -9,8 +9,17 @@ import { smartFallback } from '../services/smart-fallback.js';
 import { debugLogger } from '../services/debug-logger.js';
 import { oauthManager } from '../services/oauth-manager.js';
 import { cacheManager } from '../services/cache-manager.js';
+import { semanticCache } from '../services/semantic-cache.js';
 import { metricsCollector } from '../services/metrics.js';
 import { quotaTracker } from '../services/quota-tracker.js';
+import { providerRateLimiter } from '../services/provider-rate-limiter.js';
+import { modelBenchmark } from '../services/model-benchmark.js';
+import { circuitBreaker } from '../services/circuit-breaker.js';
+import { virtualKeyManager } from '../services/virtual-keys.js';
+import { requestDeduplicator } from '../services/request-deduplicator.js';
+import { contentSafety } from '../services/content-safety.js';
+import { webhookManager } from '../services/webhooks.js';
+import { abTesting } from '../services/ab-testing.js';
 import { prometheusMetrics } from '../services/prometheus.js';
 import { pluginManager } from '../plugins/manager.js';
 import { chatRequestSchema } from '../services/validator.js';
@@ -64,13 +73,41 @@ export async function chatRoutes(app: FastifyInstance) {
     const cavemanMode = request.headers['x-caveman-mode'] === 'true';
     const debugMode = request.headers['x-debug-mode'] === 'true' || debugLogger.isEnabled();
     if (debugMode) debugLogger.setEnabled(true);
-    
+
+    // Virtual Key validation
+    const authHeader = request.headers.authorization || '';
+    const virtualKey = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    let vKey: ReturnType<typeof virtualKeyManager.validateKey> = null;
+    if (virtualKey && virtualKey.startsWith('bawwab-')) {
+      vKey = virtualKeyManager.validateKey(virtualKey);
+      if (!vKey) {
+        return reply.status(401).send({ error: 'Invalid or expired virtual API key' });
+      }
+      const estimateTokens = body.messages.reduce((sum, m) => sum + (typeof m.content === 'string' ? m.content.length / 4 : 100), 0);
+      const rl = virtualKeyManager.checkRateLimit(vKey.id, estimateTokens);
+      if (!rl.allowed) {
+        return reply.status(429).send({ error: 'Rate limit exceeded', retryAfter: rl.retryAfter });
+      }
+    }
+
     const debugEntryId = crypto.randomUUID();
     let decision: any = null;
     
     try {
       let optimizedRequest = tokenOptimizer.optimize(body);
-      
+
+      // Content Safety Scan
+      const safety = contentSafety.scanRequest(optimizedRequest.messages);
+      if (!safety.safe) {
+        return reply.status(400).send({
+          error: 'Content safety violation',
+          warnings: safety.warnings,
+          injection: safety.injectionDetected,
+          toxic: safety.toxicDetected,
+        });
+      }
+      optimizedRequest.messages = safety.redactedMessages as typeof optimizedRequest.messages;
+
       // Apply tool output compression before routing
       optimizedRequest = {
         ...optimizedRequest,
@@ -86,7 +123,16 @@ export async function chatRoutes(app: FastifyInstance) {
 
       // 3. Generate hash-based cache key (not full JSON)
       const cacheKeyHash = generateCacheHash(decision.providerId, decision.modelId, optimizedRequest.messages);
-      
+
+      // Try semantic cache first
+      const lastUserMessage = optimizedRequest.messages.filter(m => m.role === 'user').pop()?.content;
+      if (!isStream && typeof lastUserMessage === 'string') {
+        const semCached = await semanticCache.get(lastUserMessage);
+        if (semCached) {
+          return reply.send(semCached);
+        }
+      }
+
       if (!isStream) {
         const cacheKey = cacheManager.generateKey('chat', cacheKeyHash);
         const cached = await cacheManager.get(cacheKey);
@@ -111,12 +157,11 @@ export async function chatRoutes(app: FastifyInstance) {
         }
       }
 
-      const response = await forwardWithFallback(
-        provider,
-        decision,
-        optimizedRequest,
-        isStream,
-        cavemanMode
+      const response = await requestDeduplicator.dedupe(
+        provider.id,
+        decision.modelId,
+        request,
+        () => forwardToProvider(provider, decision.modelId, optimizedRequest, isStream, cavemanMode)
       );
 
       const latency = Date.now() - startTime;
@@ -189,6 +234,28 @@ export async function chatRoutes(app: FastifyInstance) {
 
       // Record quota usage
       quotaTracker.recordUsage(decision.providerId, decision.providerId, tokensIn, tokensOut, actualCost);
+
+      // Record benchmark
+      modelBenchmark.record({
+        providerId: decision.providerId,
+        modelId: decision.modelId,
+        latencyMs: latency,
+        tokensIn,
+        tokensOut,
+        cost: actualCost,
+        success: true,
+        timestamp: new Date(),
+      });
+
+      // Record virtual key usage
+      if (vKey) {
+        virtualKeyManager.recordUsage(vKey.id, tokensIn, tokensOut, actualCost);
+      }
+
+      // Store in semantic cache
+      if (!isStream && typeof response === 'object' && lastUserMessage && typeof lastUserMessage === 'string') {
+        await semanticCache.set(lastUserMessage, response, 600);
+      }
 
       if (!isStream && typeof response === 'object') {
         const cacheKey = cacheManager.generateKey('chat', cacheKeyHash);
@@ -359,6 +426,18 @@ async function forwardWithFallback(
       });
       
       logger.warn({ provider: provider.id, error: lastError.message }, '[Fallback] Provider failed, trying next...');
+
+      // Record benchmark failure
+      modelBenchmark.record({
+        providerId: provider.id,
+        modelId: decision.modelId,
+        latencyMs: Date.now(),
+        tokensIn: 0,
+        tokensOut: 0,
+        cost: 0,
+        success: false,
+        timestamp: new Date(),
+      });
     }
   }
   
@@ -367,7 +446,18 @@ async function forwardWithFallback(
 
 async function forwardToProvider(provider: any, modelId: string, request: ChatRequest, stream: boolean = false, cavemanMode: boolean = false): Promise<any> {
   const envKey = `${provider.id.toUpperCase()}_API_KEY`;
-  
+
+  // Circuit breaker check
+  if (!circuitBreaker.allowRequest(provider.id)) {
+    throw new Error(`Circuit breaker OPEN for provider "${provider.name}". Try again later.`);
+  }
+
+  // Provider rate limit check
+  const canProceed = await providerRateLimiter.checkLimit(provider.id);
+  if (!canProceed) {
+    throw new Error(`Provider "${provider.name}" rate limit nearly exhausted. Queued.`);
+  }
+
   // Use keyManager for multi-account round-robin
   let apiKey = keyManager.getNextKey(provider.id);
   
@@ -441,19 +531,27 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
 
       if (!response.ok) {
         const error = await response.text();
+        providerRateLimiter.parseHeaders(provider.id, response.headers);
+        circuitBreaker.recordFailure(provider.id);
         throw new Error(`Provider error (${response.status}): ${error}`);
       }
+
+      // Parse rate limit headers on success
+      providerRateLimiter.parseHeaders(provider.id, response.headers);
+      providerRateLimiter.decrement(provider.id);
+      circuitBreaker.recordSuccess(provider.id);
 
       if (stream) {
         return response.body;
       }
 
       const nativeResponse = await response.json();
-      
+
       // Translate response back to OpenAI format
       return formatTranslator.translateResponse(nativeResponse, targetFormat);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
+      circuitBreaker.recordFailure(provider.id);
       if (attempt === 0) {
         logger.warn({ provider: provider.id, attempt: 1 }, '[Retry] Provider attempt 1 failed, retrying...');
         await new Promise(r => setTimeout(r, 500)); // 500ms backoff

@@ -49,7 +49,7 @@ class CacheManager {
   
   private cleanupMemory(): void {
     const now = Date.now();
-    for (const [key, entry] of this.memoryCache) {
+    for (const [key, entry] of Array.from(this.memoryCache.entries())) {
       if (entry.expiry <= now) {
         this.memoryCache.delete(key);
       }

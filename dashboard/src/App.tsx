@@ -10,6 +10,8 @@ import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
 import { Combos } from './pages/Combos';
 import { Quota } from './pages/Quota';
+import VirtualKeys from './pages/VirtualKeys';
+import Advanced from './pages/Advanced';
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
           <Route path="/providers/add" element={<AddProvider />} />
           <Route path="/combos" element={<Combos />} />
           <Route path="/quota" element={<Quota />} />
+          <Route path="/virtual-keys" element={<VirtualKeys />} />
+          <Route path="/advanced" element={<Advanced />} />
           <Route path="/logs" element={<Logs />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
