@@ -15,6 +15,7 @@ import { intelligentRouter } from './services/intelligent-router.js';
 import { cacheManager } from './services/cache-manager.js';
 import { metricsCollector } from './services/metrics.js';
 import { prometheusMetrics } from './services/prometheus.js';
+import { initDatabase, closeDb } from './services/database.js';
 import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
 import { providerRoutes, adminRoutes, wsRoutes } from './routes/providers.js';
@@ -89,8 +90,11 @@ app.get('/metrics', async (request, reply) => {
 app.addHook('onReady', async () => {
   app.log.info('🚪 Bawwab Gateway starting...');
   
+  initDatabase();
+  app.log.info('🗄️ Database initialized');
+  
   await pluginManager.loadPlugins();
-  app.log.info(`📦 Loaded ${pluginManager.getPlugins().length} plugins`);
+  app.log.info(`📦 Loaded ${pluginManager.getAllProviders().length} providers`);
   
   await healthMonitor.start();
   app.log.info('💓 Health monitor started');
@@ -141,6 +145,7 @@ app.setErrorHandler((error, request, reply) => {
 app.addHook('onClose', async () => {
   await healthMonitor.stop();
   await cacheManager.disconnect();
+  closeDb();
 });
 
 // SIGTERM / SIGINT handlers for Docker/Kubernetes graceful shutdown
