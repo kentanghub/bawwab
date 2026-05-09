@@ -592,6 +592,352 @@ class PluginManager {
         successRate: 0.95,
         costPer1kTokens: 0.0005,
         isEnabled: true
+      },
+      // Batch 2: Provider expansion to exceed 9router
+      {
+        id: 'qwen',
+        alias: 'qw',
+        name: 'Qwen',
+        type: 'apikey',
+        baseUrl: 'https://portal.qwen.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'qwen-max', name: 'Qwen Max', contextWindow: 32000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: true, costPer1kInput: 0.002, costPer1kOutput: 0.006 },
+          { id: 'qwen-plus', name: 'Qwen Plus', contextWindow: 128000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0008, costPer1kOutput: 0.002 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'alicode',
+        alias: 'ac',
+        name: 'AliCode',
+        type: 'apikey',
+        baseUrl: 'https://coding.dashscope.aliyuncs.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'qwen-coder-plus', name: 'Qwen Coder Plus', contextWindow: 128000, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0005, costPer1kOutput: 0.0015 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'alicode-intl',
+        alias: 'aci',
+        name: 'AliCode Intl',
+        type: 'apikey',
+        baseUrl: 'https://coding-intl.dashscope.aliyuncs.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'qwen-coder-plus-latest', name: 'Qwen Coder Plus Intl', contextWindow: 128000, maxTokens: 8192, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0005, costPer1kOutput: 0.0015 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'volcengine',
+        alias: 've',
+        name: 'Volcengine Ark',
+        type: 'apikey',
+        baseUrl: 'https://ark.cn-beijing.volces.com/api/coding/v3',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'doubao-pro-128k', name: 'Doubao Pro 128K', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0005, costPer1kOutput: 0.001 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'byteplus',
+        alias: 'bp',
+        name: 'BytePlus',
+        type: 'apikey',
+        baseUrl: 'https://ark.ap-southeast.bytepluses.com/api/coding/v3',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'doubao-pro-128k', name: 'Doubao Pro 128K', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0005, costPer1kOutput: 0.001 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.001,
+        isEnabled: true
+      },
+      {
+        id: 'kilocode',
+        alias: 'kc',
+        name: 'KiloCode',
+        type: 'apikey',
+        baseUrl: 'https://api.kilo.ai/api/openrouter',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'openrouter/auto', name: 'Auto Router', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.001, costPer1kOutput: 0.003 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.002,
+        isEnabled: true
+      },
+      {
+        id: 'nanobanana',
+        alias: 'nbn',
+        name: 'NanoBanana',
+        type: 'apikey',
+        baseUrl: 'https://api.nanobananaapi.ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'nb-llama-3.3-70b', name: 'NB Llama 3.3 70B', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0001, costPer1kOutput: 0.0001 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.94,
+        costPer1kTokens: 0.0002,
+        isEnabled: true
+      },
+      {
+        id: 'commandcode',
+        alias: 'cc',
+        name: 'CommandCode',
+        type: 'apikey',
+        baseUrl: 'https://api.commandcode.ai/alpha',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'commandcode-v1', name: 'CommandCode v1', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.001, costPer1kOutput: 0.003 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.002,
+        isEnabled: true
+      },
+      {
+        id: 'azure',
+        alias: 'az',
+        name: 'Azure OpenAI',
+        type: 'apikey',
+        baseUrl: 'https://{resource}.openai.azure.com/openai/deployments/{deployment}',
+        authType: 'bearer',
+        authHeader: 'api-key',
+        models: [
+          { id: 'gpt-4o', name: 'GPT-4o', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.005, costPer1kOutput: 0.015 },
+          { id: 'gpt-4o-mini', name: 'GPT-4o Mini', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.00015, costPer1kOutput: 0.0006 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.98,
+        costPer1kTokens: 0.005,
+        isEnabled: true
+      },
+      {
+        id: 'cloudflare',
+        alias: 'cf',
+        name: 'Cloudflare AI',
+        type: 'apikey',
+        baseUrl: 'https://api.cloudflare.com/client/v4/accounts/{accountId}/ai/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: '@cf/meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', contextWindow: 32000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.0001, costPer1kOutput: 0.0001 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.96,
+        costPer1kTokens: 0.0002,
+        isEnabled: true
+      },
+      {
+        id: 'gitlab',
+        alias: 'gl',
+        name: 'GitLab Duo',
+        type: 'apikey',
+        baseUrl: 'https://gitlab.com/api/v4',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'gitlab-duo-chat', name: 'GitLab Duo Chat', contextWindow: 32000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.001, costPer1kOutput: 0.003 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.002,
+        isEnabled: true
+      },
+      {
+        id: 'codebuddy',
+        alias: 'cb',
+        name: 'CodeBuddy (Tencent)',
+        type: 'apikey',
+        baseUrl: 'https://copilot.tencent.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'codebuddy-v1', name: 'CodeBuddy v1', contextWindow: 32000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.001, costPer1kOutput: 0.002 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0.0015,
+        isEnabled: true
+      },
+      {
+        id: 'xiaomi-mimo',
+        alias: 'xm',
+        name: 'Xiaomi MiMo',
+        type: 'apikey',
+        baseUrl: 'https://api.xiaomimimo.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'mimo-v1', name: 'MiMo v1', contextWindow: 32000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0.001, costPer1kOutput: 0.002 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.94,
+        costPer1kTokens: 0.0015,
+        isEnabled: true
+      },
+      {
+        id: 'ollama',
+        alias: 'ol',
+        name: 'Ollama',
+        type: 'apikey',
+        baseUrl: 'https://ollama.com/api',
+        authType: 'none',
+        authHeader: '',
+        models: [
+          { id: 'llama3.3', name: 'Llama 3.3', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0,
+        isEnabled: true
+      },
+      {
+        id: 'ollama-local',
+        alias: 'oll',
+        name: 'Ollama Local',
+        type: 'apikey',
+        baseUrl: 'http://localhost:11434/api',
+        authType: 'none',
+        authHeader: '',
+        models: [
+          { id: 'llama3.3', name: 'Llama 3.3 Local', contextWindow: 128000, maxTokens: 4096, supportsStreaming: true, supportsVision: false, supportsTools: true, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.95,
+        costPer1kTokens: 0,
+        isEnabled: true
+      },
+      {
+        id: 'vertex',
+        alias: 'vx',
+        name: 'Vertex AI',
+        type: 'apikey',
+        baseUrl: 'https://aiplatform.googleapis.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'gemini-1.5-pro-002', name: 'Gemini 1.5 Pro', contextWindow: 2000000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.00125, costPer1kOutput: 0.005 },
+          { id: 'gemini-1.5-flash-002', name: 'Gemini 1.5 Flash', contextWindow: 1000000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.000075, costPer1kOutput: 0.0003 }
+        ],
+        capabilities: ['llm', 'imageToText'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.002,
+        isEnabled: true
+      },
+      {
+        id: 'vertex-partner',
+        alias: 'vxp',
+        name: 'Vertex Partner',
+        type: 'apikey',
+        baseUrl: 'https://aiplatform.googleapis.com/v1',
+        authType: 'bearer',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'claude-3-5-sonnet@20241022', name: 'Claude 3.5 Sonnet', contextWindow: 200000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0.003, costPer1kOutput: 0.015 }
+        ],
+        capabilities: ['llm'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.005,
+        isEnabled: true
+      },
+      {
+        id: 'deepgram',
+        alias: 'dg',
+        name: 'Deepgram',
+        type: 'apikey',
+        baseUrl: 'https://api.deepgram.com/v1',
+        authType: 'apikey',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'nova-2', name: 'Nova 2', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.0043, costPer1kOutput: 0 }
+        ],
+        capabilities: ['audioTranscription'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.0043,
+        isEnabled: true
+      },
+      {
+        id: 'assemblyai',
+        alias: 'aa',
+        name: 'AssemblyAI',
+        type: 'apikey',
+        baseUrl: 'https://api.assemblyai.com/v1',
+        authType: 'apikey',
+        authHeader: 'Authorization',
+        models: [
+          { id: 'best', name: 'Best', contextWindow: 0, maxTokens: 0, supportsStreaming: false, supportsVision: false, supportsTools: false, supportsThinking: false, costPer1kInput: 0.0037, costPer1kOutput: 0 }
+        ],
+        capabilities: ['audioTranscription'],
+        healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+        latencyMs: 0,
+        successRate: 0.97,
+        costPer1kTokens: 0.0037,
+        isEnabled: true
       }
     ];
 

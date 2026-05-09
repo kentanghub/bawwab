@@ -39,7 +39,8 @@ export type Capability =
   | 'webSearch'
   | 'webFetch'
   | 'video'
-  | 'music';
+  | 'music'
+  | 'audioTranscription';
 
 export interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy' | 'unknown';
