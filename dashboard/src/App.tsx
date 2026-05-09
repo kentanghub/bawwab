@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
+import { ImageGen } from './pages/ImageGen';
+import { Compare } from './pages/Compare';
+import { Embeddings } from './pages/Embeddings';
 import { Providers } from './pages/Providers';
 import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
@@ -11,6 +14,9 @@ function App() {
       <Layout>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/image-gen" element={<ImageGen />} />
+          <Route path="/compare" element={<Compare />} />
+          <Route path="/embeddings" element={<Embeddings />} />
           <Route path="/providers" element={<Providers />} />
           <Route path="/logs" element={<Logs />} />
           <Route path="/settings" element={<Settings />} />

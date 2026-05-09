@@ -24,6 +24,7 @@ import { chatRoutes } from './routes/chat.js';
 import { capabilityRoutes } from './routes/capabilities.js';
 import { compareRoutes } from './routes/compare.js';
 import { providerRoutes, adminRoutes, wsRoutes } from './routes/providers.js';
+import { checkRateLimit, checkQuota, incrementUsage } from './services/rate-limiter.js';
 
 dotenv.config();
 
@@ -49,6 +50,53 @@ app.addHook('onRequest', async (request, reply) => {
   const requestId = request.headers['x-request-id']?.toString() || crypto.randomUUID();
   request.id = requestId;
   reply.header('x-request-id', requestId);
+});
+
+// Per-API-key rate limiting and quota
+app.addHook('preHandler', async (request, reply) => {
+  const apiKey = request.headers['x-api-key']?.toString();
+  if (!apiKey) return;
+
+  // Skip rate limit check for admin endpoints with admin key
+  if (request.url.startsWith('/v1/admin') && apiKey === process.env.ADMIN_API_KEY) {
+    return;
+  }
+
+  const rl = checkRateLimit(apiKey);
+  if (!rl.allowed) {
+    reply.header('X-RateLimit-Limit', rl.limit);
+    reply.header('X-RateLimit-Remaining', 0);
+    reply.header('X-RateLimit-Reset', Math.ceil(rl.resetAt / 1000));
+    reply.status(429).send({
+      error: 'RATE_LIMIT_EXCEEDED',
+      message: `Rate limit exceeded. Retry after ${rl.retryAfter}s.`,
+      retryAfter: rl.retryAfter
+    });
+    return;
+  }
+
+  const quota = checkQuota(apiKey);
+  if (!quota.allowed) {
+    reply.header('X-Quota-Limit', quota.monthlyQuota);
+    reply.header('X-Quota-Remaining', 0);
+    reply.header('X-Quota-Reset', quota.resetAt);
+    reply.status(429).send({
+      error: 'QUOTA_EXCEEDED',
+      message: `Monthly quota exceeded. Resets at ${quota.resetAt}.`,
+      resetAt: quota.resetAt
+    });
+    return;
+  }
+
+  reply.header('X-RateLimit-Limit', rl.limit);
+  reply.header('X-RateLimit-Remaining', rl.remaining);
+  reply.header('X-RateLimit-Reset', Math.ceil(rl.resetAt / 1000));
+  reply.header('X-Quota-Limit', quota.monthlyQuota);
+  reply.header('X-Quota-Remaining', quota.remaining);
+  reply.header('X-Quota-Reset', quota.resetAt);
+
+  // Increment usage after successful check
+  incrementUsage(apiKey);
 });
 
 // Register plugins

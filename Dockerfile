@@ -1,56 +1,43 @@
-# Build stage
-FROM node:20-alpine AS builder
+# syntax=docker/dockerfile:1
 
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY api/package*.json ./api/
-COPY dashboard/package*.json ./dashboard/
-
-# Install dependencies
-RUN npm install
-RUN cd api && npm install
-RUN cd dashboard && npm install
-
-# Copy source
-COPY . .
-
-# Build
+# Stage 1: Build dashboard
+FROM node:20-alpine AS dashboard-builder
+WORKDIR /app/dashboard
+COPY dashboard/package*.json ./
+RUN npm ci
+COPY dashboard/ ./
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine AS production
+# Stage 2: Build API
+FROM node:20-alpine AS api-builder
+WORKDIR /app/api
+COPY api/package*.json ./
+RUN npm ci
+COPY api/ ./
+RUN npm run build
 
+# Stage 3: Runtime
+FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install production dependencies for API
+COPY api/package*.json ./api/
+RUN cd api && npm ci --omit=dev
 
-# Copy built files
-COPY --from=builder /app/api/dist ./api/dist
-COPY --from=builder /app/dashboard/dist ./dashboard/dist
-COPY --from=builder /app/bin ./bin
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/api/package*.json ./api/
-COPY --from=builder /app/dashboard/package*.json ./dashboard/
+# Copy built API
+COPY --from=api-builder /app/api/dist ./api/dist
 
-# Install production dependencies only
-RUN npm install --production && \
-    cd api && npm install --production && \
-    cd ../dashboard && npm install --production
+# Copy built dashboard into API's expected location
+COPY --from=dashboard-builder /app/dashboard/dist ./dashboard/dist
 
-# Environment
+# Data directory for SQLite
+RUN mkdir -p /app/api/data
+
 ENV NODE_ENV=production
 ENV PORT=3001
 ENV HOST=0.0.0.0
+ENV DB_PATH=/app/api/data/bawwab.db
 
-# Expose port
-EXPOSE 20128 3001
+EXPOSE 3001
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3001/health || exit 1
-
-# Start
-CMD ["node", "bin/bawwab.js"]
+CMD ["node", "api/dist/index.js"]

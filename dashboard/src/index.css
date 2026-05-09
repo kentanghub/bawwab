@@ -6,44 +6,75 @@
   html {
     font-family: 'Inter', system-ui, sans-serif;
   }
-  
+
   body {
-    @apply bg-gray-950 text-gray-100 antialiased;
+    @apply bg-black text-white antialiased;
   }
 }
 
 @layer utilities {
-  .bg-gray-850 {
-    background-color: #1f1f2e;
+  .bg-surface {
+    background-color: #111111;
+  }
+  .bg-surface-raised {
+    background-color: #1a1a1a;
+  }
+  .bg-surface-overlay {
+    background-color: #222222;
+  }
+  .border-subtle {
+    border-color: #2a2a2a;
+  }
+  .text-muted {
+    color: #888888;
+  }
+  .text-faint {
+    color: #555555;
   }
 }
 
 @layer components {
   .card {
-    @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
+    @apply bg-[#111111] border border-[#2a2a2a] rounded-xl p-6;
   }
-  
+
   .card-hover {
-    @apply card hover:border-gray-700 transition-colors;
+    @apply card hover:border-[#3a3a3a] transition-colors;
   }
-  
+
   .btn-primary {
-    @apply px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-medium transition-colors;
+    @apply px-4 py-2 bg-white hover:bg-gray-200 text-black rounded-lg font-medium transition-colors;
   }
-  
+
   .btn-secondary {
-    @apply px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg font-medium transition-colors;
+    @apply px-4 py-2 bg-[#1a1a1a] hover:bg-[#252525] text-white border border-[#2a2a2a] rounded-lg font-medium transition-colors;
   }
-  
+
+  .btn-ghost {
+    @apply px-4 py-2 hover:bg-[#1a1a1a] text-white rounded-lg font-medium transition-colors;
+  }
+
+  .input-field {
+    @apply w-full bg-[#111111] border border-[#2a2a2a] rounded-lg px-4 py-2.5 text-white placeholder-[#555555] focus:outline-none focus:border-[#555555] transition-colors;
+  }
+
+  .input-field:focus {
+    @apply ring-0;
+  }
+
   .status-healthy {
-    @apply text-emerald-400;
+    @apply text-white;
   }
-  
+
   .status-degraded {
-    @apply text-yellow-400;
+    @apply text-[#888888];
   }
-  
+
   .status-unhealthy {
-    @apply text-red-400;
+    @apply text-white;
+  }
+
+  .divider {
+    @apply border-[#2a2a2a];
   }
 }
