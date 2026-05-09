@@ -1,4 +1,5 @@
 import type { ChatRequest, Message, TokenOptimizerConfig } from '../types/index.js';
+import { logger } from './logger.js';
 
 class TokenOptimizer {
   private config: TokenOptimizerConfig = {
@@ -17,7 +18,7 @@ class TokenOptimizer {
       try {
         this.config = { ...this.config, ...JSON.parse(envConfig) };
       } catch {
-        console.warn('Invalid TOKEN_OPTIMIZER_CONFIG');
+        logger.warn('Invalid TOKEN_OPTIMIZER_CONFIG');
       }
     }
   }

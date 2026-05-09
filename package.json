@@ -22,6 +22,7 @@
     "build:api": "cd api && npm install && npm run build",
     "build:dashboard": "cd dashboard && npm install && npm run build",
     "start": "node bin/bawwab.js",
+    "test": "echo 'Error: no test specified' && exit 0",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

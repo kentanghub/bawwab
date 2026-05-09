@@ -119,6 +119,37 @@ async function startDashboard() {
   };
   
   const server = createServer(handler);
+
+  // WebSocket upgrade proxy
+  server.on('upgrade', (req, socket, head) => {
+    if (req.url?.startsWith('/ws/')) {
+      const options = {
+        hostname: 'localhost',
+        port: API_PORT,
+        path: req.url,
+        method: req.method,
+        headers: { ...req.headers, host: `localhost:${API_PORT}` }
+      };
+      
+      const proxy = httpRequest(options);
+      proxy.on('upgrade', (proxyRes, proxySocket, proxyHead) => {
+        socket.write('HTTP/1.1 101 Switching Protocols\r\n' +
+          Object.entries(proxyRes.headers).map(([k, v]) => `${k}: ${v}`).join('\r\n') +
+          '\r\n\r\n');
+        proxySocket.pipe(socket);
+        socket.pipe(proxySocket);
+      });
+      
+      proxy.on('error', (err) => {
+        console.error('[Proxy] WS upgrade error:', err.message);
+        socket.destroy();
+      });
+      
+      proxy.end();
+    } else {
+      socket.destroy();
+    }
+  });
   
   server.listen(PORT, () => {
     console.log(`\n✅ Bawwab is running!`);

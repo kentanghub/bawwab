@@ -1,4 +1,5 @@
 import { Redis } from 'ioredis';
+import { logger } from './logger.js';
 
 class CacheManager {
   private redis: Redis | null = null;
@@ -18,15 +19,15 @@ class CacheManager {
         
         this.redis.on('connect', () => {
           this.connected = true;
-          console.log('Redis connected');
+          logger.info('Redis connected');
         });
         
         this.redis.on('error', (err) => {
-          console.error('Redis error:', err.message);
+          logger.error({ err }, 'Redis error');
           this.connected = false;
         });
       } catch (err) {
-        console.warn('Failed to connect to Redis, using in-memory cache');
+        logger.warn('Failed to connect to Redis, using in-memory cache');
         this.connected = false;
       }
     }

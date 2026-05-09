@@ -1,4 +1,5 @@
 import type { Provider, PluginManifest, Model } from '../types/index.js';
+import { logger } from '../services/logger.js';
 
 class PluginManager {
   private providers: Map<string, Provider> = new Map();
@@ -13,7 +14,7 @@ class PluginManager {
       const pluginDir = process.env.PLUGIN_DIR || './plugins/external';
       // Dynamic import would go here for external plugins
     } catch (err) {
-      console.log('No external plugins found');
+      logger.info('No external plugins found');
     }
   }
 

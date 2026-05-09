@@ -126,6 +126,22 @@ app.addHook('onClose', async () => {
   await cacheManager.disconnect();
 });
 
+// SIGTERM / SIGINT handlers for Docker/Kubernetes graceful shutdown
+const shutdown = async (signal: string) => {
+  app.log.info(`Received ${signal}, shutting down gracefully...`);
+  try {
+    await app.close();
+    app.log.info('Graceful shutdown complete');
+    process.exit(0);
+  } catch (err) {
+    app.log.error(err, 'Error during graceful shutdown');
+    process.exit(1);
+  }
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
 

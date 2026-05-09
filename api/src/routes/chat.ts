@@ -6,6 +6,7 @@ import { cacheManager } from '../services/cache-manager.js';
 import { metricsCollector } from '../services/metrics.js';
 import { pluginManager } from '../plugins/manager.js';
 import { chatRequestSchema } from '../services/validator.js';
+import { logger } from '../services/logger.js';
 import { createHash } from 'node:crypto';
 
 export async function chatRoutes(app: FastifyInstance) {
@@ -284,7 +285,7 @@ async function forwardWithFallback(
         successRate: Math.max(0, (provider.successRate || 0.9) - 0.05)
       });
       
-      console.warn(`[Fallback] Provider ${provider.id} failed: ${lastError.message}. Trying next...`);
+      logger.warn({ provider: provider.id, error: lastError.message }, '[Fallback] Provider failed, trying next...');
     }
   }
   
@@ -342,7 +343,7 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (attempt === 0) {
-        console.warn(`[Retry] Provider ${provider.id} attempt 1 failed, retrying...`);
+        logger.warn({ provider: provider.id, attempt: 1 }, '[Retry] Provider attempt 1 failed, retrying...');
         await new Promise(r => setTimeout(r, 500)); // 500ms backoff
       }
     }
