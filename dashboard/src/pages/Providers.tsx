@@ -13,7 +13,7 @@ export function Providers() {
 
   const fetchProviders = async () => {
     try {
-      const res = await fetch('/api/v1/providers');
+      const res = await fetch('/v1/providers');
       const data = await res.json();
       setProviders(data.providers);
     } catch (err) {
@@ -23,7 +23,7 @@ export function Providers() {
 
   const toggleProvider = async (id: string) => {
     try {
-      await fetch(`/api/v1/providers/${id}/toggle`, { method: 'PATCH' });
+      await fetch(`/v1/providers/${id}/toggle`, { method: 'PATCH' });
       fetchProviders();
     } catch (err) {
       console.error('Failed to toggle provider:', err);

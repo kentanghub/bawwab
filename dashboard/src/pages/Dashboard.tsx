@@ -28,7 +28,7 @@ export function Dashboard() {
 
   const fetchProviders = async () => {
     try {
-      const res = await fetch('/api/v1/providers');
+      const res = await fetch('/v1/providers');
       const data = await res.json();
       setProviders(data.providers);
     } catch (err) {
@@ -38,7 +38,7 @@ export function Dashboard() {
 
   const fetchMetrics = async () => {
     try {
-      const res = await fetch('/api/v1/admin/metrics');
+      const res = await fetch('/v1/admin/metrics');
       const data = await res.json();
       setMetrics(data.stats);
     } catch (err) {

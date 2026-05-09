@@ -27,7 +27,7 @@ export function Logs() {
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch('/api/v1/admin/logs?limit=50');
+      const res = await fetch('/v1/admin/logs?limit=50');
       const data = await res.json();
       setLogs(data.logs);
     } catch (err) {

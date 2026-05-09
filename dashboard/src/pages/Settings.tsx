@@ -21,7 +21,7 @@ export function Settings() {
 
   const fetchConfig = async () => {
     try {
-      const res = await fetch('/api/v1/admin/config/token-optimizer');
+      const res = await fetch('/v1/admin/config/token-optimizer');
       const data = await res.json();
       setConfig(data.config);
     } catch (err) {

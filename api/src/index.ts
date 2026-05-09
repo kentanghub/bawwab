@@ -8,6 +8,9 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import dotenv from 'dotenv';
 import crypto from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import fastifyStatic from '@fastify/static';
 import { pluginManager } from './plugins/manager.js';
 import { healthMonitor } from './services/health-monitor.js';
 import { tokenOptimizer } from './services/token-optimizer.js';
@@ -124,6 +127,26 @@ await app.register(compareRoutes, { prefix: '/v1' });
 await app.register(providerRoutes, { prefix: '/v1/providers' });
 await app.register(adminRoutes, { prefix: '/v1/admin' });
 await app.register(wsRoutes, { prefix: '/ws' });
+
+// Serve dashboard static files (single-port self-hosted mode)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dashboardDistPath = join(__dirname, '../../dashboard/dist');
+await app.register(fastifyStatic, {
+  root: dashboardDistPath,
+  prefix: '/',
+  wildcard: false
+});
+
+// SPA fallback for React Router
+app.setNotFoundHandler((request, reply) => {
+  const apiPrefixes = ['/v1/', '/ws/', '/health', '/metrics', '/docs'];
+  const isApi = apiPrefixes.some(p => request.url.startsWith(p));
+  if (isApi) {
+    reply.code(404).send({ error: 'Not Found' });
+  } else {
+    reply.sendFile('index.html');
+  }
+});
 
 // Health check
 app.get('/health', async () => ({

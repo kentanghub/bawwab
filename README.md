@@ -60,94 +60,61 @@ Bawwab is an open-source AI Gateway that improves upon existing solutions with i
 - Hot-swappable providers
 - Support for 40+ providers out of the box
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Self-Hosted)
+
+Bawwab is designed to run **locally on your own machine**. No cloud deployment required — your API keys stay private.
 
 ### Prerequisites
 
 - **Node.js 18+** (check with `node --version`)
-- **npm** or **yarn**
+- **npm**
 
 ```bash
-# Check Node.js version
 node --version
-
-# If Node.js < 18, install via:
-# macOS: brew install node
-# Ubuntu: sudo apt install nodejs
-# Windows: https://nodejs.org
 ```
 
-### Installation
-
-Choose one of these methods:
-
-#### Option 1: Clone & Run (Recommended)
+### 1. Clone & Install
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/kentanghub/bawwab.git
 cd bawwab
-
-# 2. Install dependencies
 npm install
+```
 
-# 3. Build the project
+### 2. Configure
+
+Run the interactive setup wizard:
+
+```bash
+npm run setup
+```
+
+Or manually create `api/.env`:
+
+```env
+PORT=3001
+HOST=0.0.0.0
+NODE_ENV=production
+JWT_SECRET=your-secret
+ADMIN_API_KEY=your-admin-key
+OPENAI_API_KEY=sk-...        # optional
+GEMINI_API_KEY=AIza...       # optional
+DEEPSEEK_API_KEY=sk-...      # optional
+ANTHROPIC_API_KEY=sk-ant-... # optional
+TAVILY_API_KEY=tvly-...      # optional
+JINA_API_KEY=jina_...        # optional
+```
+
+### 3. Build & Run
+
+```bash
 npm run build
-```
-
-#### Option 2: Global Install via npm
-
-```bash
-npm install -g bawwab
-```
-
-#### Option 3: Using npx (No Install)
-
-```bash
-npx bawwab
-```
-
-### Configuration
-
-```bash
-# Copy environment file
-cp api/.env.example api/.env
-
-# Edit api/.env and add your API keys
-nano api/.env  # or use your favorite editor
-```
-
-**Minimum required config:**
-
-```env
-JWT_SECRET=your-super-secret-key-here
-ADMIN_API_KEY=your-admin-api-key-here
-```
-
-**Optional - Add provider API keys:**
-
-```env
-OPENROUTER_API_KEY=sk-or-v1-...
-ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=sk-...
-DEEPSEEK_API_KEY=sk-...
-GEMINI_API_KEY=AIza...
-```
-
-### Running Bawwab
-
-```bash
-# If cloned:
 npm start
-
-# If installed globally:
-bawwab
-
-# If using npx:
-npx bawwab
 ```
 
-**Dashboard will open at:** `http://localhost:20128` 🎉
+Open your browser: **http://localhost:3001** 🎉
+
+The React dashboard is served directly from the backend — no separate port needed.
 
 ---
 
