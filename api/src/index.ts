@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import websocket from '@fastify/websocket';
+import compress from '@fastify/compress';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import dotenv from 'dotenv';
@@ -13,6 +14,7 @@ import { tokenOptimizer } from './services/token-optimizer.js';
 import { intelligentRouter } from './services/intelligent-router.js';
 import { cacheManager } from './services/cache-manager.js';
 import { metricsCollector } from './services/metrics.js';
+import { prometheusMetrics } from './services/prometheus.js';
 import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
 import { providerRoutes, adminRoutes, wsRoutes } from './routes/providers.js';
@@ -32,7 +34,15 @@ const app = Fastify({
       target: 'pino-pretty',
       options: { colorize: true }
     } : undefined
-  }
+  },
+  bodyLimit: 10485760 // 10MB max request body
+});
+
+// Request ID tracing
+app.addHook('onRequest', async (request, reply) => {
+  const requestId = request.headers['x-request-id']?.toString() || crypto.randomUUID();
+  request.id = requestId;
+  reply.header('x-request-id', requestId);
 });
 
 // Register plugins
@@ -49,6 +59,7 @@ await app.register(rateLimit, {
   keyGenerator: (req) => req.headers['x-api-key']?.toString() || req.ip
 });
 await app.register(websocket);
+await app.register(compress, { global: true });
 
 // Swagger docs
 await app.register(swagger, {
@@ -67,6 +78,12 @@ await app.register(swagger, {
   }
 });
 await app.register(swaggerUi, { routePrefix: '/docs' });
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (request, reply) => {
+  reply.header('Content-Type', prometheusMetrics.getContentType());
+  return prometheusMetrics.getMetrics();
+});
 
 // Initialize services
 app.addHook('onReady', async () => {

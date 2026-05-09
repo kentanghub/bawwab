@@ -4,6 +4,7 @@ import { intelligentRouter } from '../services/intelligent-router.js';
 import { tokenOptimizer } from '../services/token-optimizer.js';
 import { cacheManager } from '../services/cache-manager.js';
 import { metricsCollector } from '../services/metrics.js';
+import { prometheusMetrics } from '../services/prometheus.js';
 import { pluginManager } from '../plugins/manager.js';
 import { chatRequestSchema } from '../services/validator.js';
 import { logger } from '../services/logger.js';
