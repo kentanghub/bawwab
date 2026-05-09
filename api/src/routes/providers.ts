@@ -50,14 +50,6 @@ export async function providerRoutes(app: FastifyInstance) {
     return { provider };
   });
 
-  app.patch('/:id/toggle', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const provider = pluginManager.getProvider(id);
-    if (!provider) return reply.status(404).send({ error: 'Provider not found' });
-    await pluginManager.updateProvider(id, { isEnabled: !provider.isEnabled });
-    return { success: true, isEnabled: !provider.isEnabled };
-  });
-
   app.get('/health', async () => {
     return { health: healthMonitor.getAllHealth() };
   });
@@ -66,6 +58,14 @@ export async function providerRoutes(app: FastifyInstance) {
 export async function adminRoutes(app: FastifyInstance) {
   // Apply auth middleware to all admin routes
   app.addHook('preHandler', requireAuth);
+
+  app.patch('/providers/:id/toggle', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const provider = pluginManager.getProvider(id);
+    if (!provider) return reply.status(404).send({ error: 'Provider not found' });
+    await pluginManager.updateProvider(id, { isEnabled: !provider.isEnabled });
+    return { success: true, isEnabled: !provider.isEnabled };
+  });
 
   app.get('/metrics', async () => {
     return {

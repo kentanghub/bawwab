@@ -1,12 +1,39 @@
+# Dependencies
 node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
 .env
 .env.local
 .env.*.local
-dist/
-.next/
+
+# Logs
 *.log
-.DS_Store
-.idea/
+logs/
+log/
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test coverage
 coverage/
-*.tsbuildinfo
+.nyc_output/
+
+# Misc
+.cache/
+temp/
+tmp/

@@ -91,25 +91,63 @@ export async function chatRoutes(app: FastifyInstance) {
 
       // 4. Forward with retry/fallback logic
       const response = await forwardWithFallback(
-        provider, 
-        decision, 
-        optimizedRequest, 
+        provider,
+        decision,
+        optimizedRequest,
         isStream
       );
-      
+
       const latency = Date.now() - startTime;
-      
+
       // 2. Extract tokensOut from provider response
       let tokensOut = 0;
       let tokensIn = estimateTokens(optimizedRequest.messages);
       let actualCost = decision.estimatedCost;
-      
+
+      // Handle streaming response with proper SSE headers
+      if (isStream && response && typeof (response as ReadableStream).getReader === 'function') {
+        reply.raw.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'X-Accel-Buffering': 'no'
+        });
+
+        const reader = (response as ReadableStream<Uint8Array>).getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            reply.raw.write(Buffer.from(value));
+          }
+        } finally {
+          reader.releaseLock();
+          reply.raw.end();
+        }
+
+        metricsCollector.record({
+          id: crypto.randomUUID(),
+          timestamp: new Date(),
+          providerId: decision.providerId,
+          modelId: decision.modelId,
+          endpoint: '/v1/chat/completions',
+          statusCode: 200,
+          latencyMs: Date.now() - startTime,
+          tokensIn,
+          tokensOut: 0,
+          cost: 0,
+          userAgent: request.headers['user-agent']?.toString(),
+          clientIp: request.ip
+        });
+        return reply;
+      }
+
       if (!isStream && typeof response === 'object') {
         tokensOut = response.usage?.completion_tokens || 0;
         tokensIn = response.usage?.prompt_tokens || tokensIn;
         actualCost = calculateActualCost(decision.providerId, decision.modelId, tokensIn, tokensOut);
       }
-      
+
       metricsCollector.record({
         id: crypto.randomUUID(),
         timestamp: new Date(),
@@ -254,16 +292,23 @@ async function forwardWithFallback(
 }
 
 async function forwardToProvider(provider: any, modelId: string, request: ChatRequest, stream: boolean = false): Promise<any> {
-  const apiKey = process.env[`${provider.id.toUpperCase()}_API_KEY`] || '';
+  const envKey = `${provider.id.toUpperCase()}_API_KEY`;
+  const apiKey = process.env[envKey];
+  
+  if (!apiKey && provider.authType !== 'none') {
+    throw new Error(`API key not configured for provider "${provider.name}". Set the ${envKey} environment variable.`);
+  }
+  
+  const safeApiKey = apiKey || '';
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
   };
   
   if (provider.authType === 'bearer') {
-    headers['Authorization'] = `Bearer ${apiKey}`;
+    headers['Authorization'] = `Bearer ${safeApiKey}`;
   } else if (provider.authType === 'apikey') {
-    headers[provider.authHeader || 'Authorization'] = apiKey;
+    headers[provider.authHeader || 'Authorization'] = safeApiKey;
   }
 
   const body = { ...request, model: modelId, stream };
