@@ -8,6 +8,8 @@ import { Providers } from './pages/Providers';
 import { AddProvider } from './pages/AddProvider';
 import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
+import { Combos } from './pages/Combos';
+import { Quota } from './pages/Quota';
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
           <Route path="/embeddings" element={<Embeddings />} />
           <Route path="/providers" element={<Providers />} />
           <Route path="/providers/add" element={<AddProvider />} />
+          <Route path="/combos" element={<Combos />} />
+          <Route path="/quota" element={<Quota />} />
           <Route path="/logs" element={<Logs />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

@@ -7,8 +7,10 @@ import { formatTranslator } from '../services/format-translator.js';
 import { keyManager } from '../services/key-manager.js';
 import { smartFallback } from '../services/smart-fallback.js';
 import { debugLogger } from '../services/debug-logger.js';
+import { oauthManager } from '../services/oauth-manager.js';
 import { cacheManager } from '../services/cache-manager.js';
 import { metricsCollector } from '../services/metrics.js';
+import { quotaTracker } from '../services/quota-tracker.js';
 import { prometheusMetrics } from '../services/prometheus.js';
 import { pluginManager } from '../plugins/manager.js';
 import { chatRequestSchema } from '../services/validator.js';
@@ -159,6 +161,8 @@ export async function chatRoutes(app: FastifyInstance) {
           userAgent: request.headers['user-agent']?.toString(),
           clientIp: request.ip
         });
+        // Record quota usage
+        quotaTracker.recordUsage(decision.providerId, decision.providerId, tokensIn, 0, 0);
         return reply;
       }
 
@@ -182,6 +186,9 @@ export async function chatRoutes(app: FastifyInstance) {
         userAgent: request.headers['user-agent']?.toString(),
         clientIp: request.ip
       });
+
+      // Record quota usage
+      quotaTracker.recordUsage(decision.providerId, decision.providerId, tokensIn, tokensOut, actualCost);
 
       if (!isStream && typeof response === 'object') {
         const cacheKey = cacheManager.generateKey('chat', cacheKeyHash);
@@ -362,10 +369,15 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
   const envKey = `${provider.id.toUpperCase()}_API_KEY`;
   
   // Use keyManager for multi-account round-robin
-  const apiKey = keyManager.getNextKey(provider.id);
+  let apiKey = keyManager.getNextKey(provider.id);
+  
+  // Fallback to OAuth token if available (for OAuth providers like claude, gemini, github)
+  if (!apiKey && oauthManager.hasToken(provider.id)) {
+    apiKey = await oauthManager.getAccessToken(provider.id);
+  }
   
   if (!apiKey && provider.authType !== 'none') {
-    throw new Error(`API key not configured for provider "${provider.name}". Set the ${envKey} environment variable.`);
+    throw new Error(`API key not configured for provider "${provider.name}". Set the ${envKey} environment variable or connect via OAuth.`);
   }
   
   const safeApiKey = apiKey || '';
@@ -396,6 +408,9 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
   } else if (targetFormat === 'gemini') {
     // Gemini uses a different URL pattern with API key as query param
     endpoint = `/models/${modelId}:generateContent`;
+  } else if (targetFormat === 'ollama') {
+    // Ollama native format uses /api/chat
+    endpoint = '/chat';
   }
 
   const body = translatedRequest;

@@ -10,7 +10,7 @@
 
 import { logger } from './logger.js';
 
-export type ApiFormat = 'openai' | 'claude' | 'gemini';
+export type ApiFormat = 'openai' | 'claude' | 'gemini' | 'ollama';
 
 export interface TranslationOptions {
   stripSystemMessage?: boolean; // Claude doesn't allow system in messages array
@@ -24,9 +24,11 @@ export class FormatTranslator {
   detectFormat(providerId: string): ApiFormat {
     const claudeProviders = ['anthropic'];
     const geminiProviders = ['gemini'];
+    const ollamaProviders = ['ollama', 'ollama-local'];
 
     if (claudeProviders.includes(providerId)) return 'claude';
     if (geminiProviders.includes(providerId)) return 'gemini';
+    if (ollamaProviders.includes(providerId)) return 'ollama';
     return 'openai'; // Default - most providers use OpenAI-compatible format
   }
 
@@ -43,6 +45,8 @@ export class FormatTranslator {
         return this.toClaude(openaiRequest, options);
       case 'gemini':
         return this.toGemini(openaiRequest, options);
+      case 'ollama':
+        return this.toOllama(openaiRequest, options);
       default:
         return openaiRequest;
     }
@@ -60,6 +64,8 @@ export class FormatTranslator {
         return this.fromClaude(nativeResponse);
       case 'gemini':
         return this.fromGemini(nativeResponse);
+      case 'ollama':
+        return this.fromOllama(nativeResponse);
       default:
         return nativeResponse;
     }
@@ -280,6 +286,58 @@ export class FormatTranslator {
         prompt_tokens: usage.promptTokenCount || 0,
         completion_tokens: usage.candidatesTokenCount || 0,
         total_tokens: (usage.promptTokenCount || 0) + (usage.candidatesTokenCount || 0),
+      },
+    };
+  }
+
+  // ─── OpenAI → Ollama ───
+
+  private toOllama(openaiReq: any, options: TranslationOptions): any {
+    const messages = openaiReq.messages || [];
+
+    const result: any = {
+      model: openaiReq.model,
+      messages: messages.map((m: any) => ({
+        role: m.role,
+        content: this.extractTextContent(m.content),
+      })),
+      stream: openaiReq.stream || false,
+    };
+
+    if (openaiReq.temperature !== undefined) {
+      result.options = { temperature: openaiReq.temperature };
+    }
+
+    return result;
+  }
+
+  // ─── Ollama → OpenAI ───
+
+  private fromOllama(ollamaRes: any): any {
+    const message = ollamaRes.message || {};
+    const content = message.content || '';
+
+    // Estimate tokens (Ollama doesn't always return token counts)
+    const promptTokens = ollamaRes.prompt_eval_count || Math.ceil(content.length / 4);
+    const completionTokens = ollamaRes.eval_count || Math.ceil(content.length / 4);
+
+    return {
+      id: `ollama-${Date.now()}`,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model: ollamaRes.model || 'ollama',
+      choices: [{
+        index: 0,
+        message: {
+          role: message.role || 'assistant',
+          content,
+        },
+        finish_reason: ollamaRes.done ? 'stop' : 'length',
+      }],
+      usage: {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: promptTokens + completionTokens,
       },
     };
   }

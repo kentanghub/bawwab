@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Server, FileText, Settings, Activity,
-  Image, Scale, BrainCircuit
+  Image, Scale, BrainCircuit, Zap, Gauge
 } from 'lucide-react';
 
 const navItems = [
@@ -11,6 +11,8 @@ const navItems = [
   { path: '/compare', icon: Scale, label: 'Compare' },
   { path: '/embeddings', icon: BrainCircuit, label: 'Embeddings' },
   { path: '/providers', icon: Server, label: 'Providers' },
+  { path: '/combos', icon: Zap, label: 'Combos' },
+  { path: '/quota', icon: Gauge, label: 'Quota' },
   { path: '/logs', icon: FileText, label: 'Logs' },
   { path: '/settings', icon: Settings, label: 'Settings' },
 ];
