@@ -1,5 +1,7 @@
 import type { Provider, PluginManifest, Model } from '../types/index.js';
 import { logger } from '../services/logger.js';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 class PluginManager {
   private providers: Map<string, Provider> = new Map();
@@ -8,7 +10,10 @@ class PluginManager {
   async loadPlugins(): Promise<void> {
     // Built-in providers
     this.registerBuiltInProviders();
-    
+
+    // Load custom providers from JSON config
+    this.loadCustomProvidersFromConfig();
+
     // Load external plugins from plugins directory
     try {
       const pluginDir = process.env.PLUGIN_DIR || './plugins/external';
@@ -16,6 +21,90 @@ class PluginManager {
     } catch (err) {
       logger.info('No external plugins found');
     }
+  }
+
+  private loadCustomProvidersFromConfig(): void {
+    const configPaths = [
+      process.env.PROVIDERS_CONFIG_PATH,
+      join(process.cwd(), 'config', 'providers.json'),
+      join(process.cwd(), 'providers.json'),
+      join(process.cwd(), '..', 'config', 'providers.json')
+    ].filter(Boolean) as string[];
+
+    for (const configPath of configPaths) {
+      if (!existsSync(configPath)) continue;
+
+      try {
+        const raw = readFileSync(configPath, 'utf-8');
+        const config = JSON.parse(raw);
+
+        if (!Array.isArray(config.providers)) {
+          logger.warn(`Invalid providers config at ${configPath}: "providers" must be an array`);
+          continue;
+        }
+
+        for (const p of config.providers) {
+          const provider = this.normalizeProvider(p);
+          if (provider) {
+            this.providers.set(provider.id, provider);
+            logger.info(`Loaded custom provider from config: ${provider.id} (${provider.name})`);
+          }
+        }
+
+        logger.info(`Loaded ${config.providers.length} custom provider(s) from ${configPath}`);
+        break; // Stop after first found config
+      } catch (err: any) {
+        logger.warn(`Failed to load providers config from ${configPath}: ${err.message}`);
+      }
+    }
+  }
+
+  private normalizeProvider(raw: any): Provider | null {
+    if (!raw.id || !raw.name || !raw.baseUrl) {
+      logger.warn('Skipping invalid provider config: missing id, name, or baseUrl');
+      return null;
+    }
+
+    // Validate URL to prevent SSRF
+    try {
+      const url = new URL(raw.baseUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        logger.warn(`Invalid protocol for provider ${raw.id}: ${url.protocol}`);
+        return null;
+      }
+    } catch {
+      logger.warn(`Invalid baseUrl for provider ${raw.id}: ${raw.baseUrl}`);
+      return null;
+    }
+
+    const now = new Date();
+    return {
+      id: String(raw.id).toLowerCase().replace(/[^a-z0-9_-]/g, ''),
+      alias: String(raw.alias || raw.id).toLowerCase(),
+      name: String(raw.name),
+      type: ['free', 'apikey', 'oauth'].includes(raw.type) ? raw.type : 'apikey',
+      baseUrl: raw.baseUrl,
+      authType: ['none', 'bearer', 'apikey'].includes(raw.authType) ? raw.authType : 'none',
+      authHeader: raw.authHeader ? String(raw.authHeader) : undefined,
+      models: Array.isArray(raw.models) ? raw.models.map((m: any) => ({
+        id: String(m.id),
+        name: String(m.name || m.id),
+        contextWindow: Number(m.contextWindow) || 128000,
+        maxTokens: Number(m.maxTokens) || 4096,
+        supportsStreaming: Boolean(m.supportsStreaming),
+        supportsVision: Boolean(m.supportsVision),
+        supportsTools: Boolean(m.supportsTools),
+        supportsThinking: Boolean(m.supportsThinking),
+        costPer1kInput: Number(m.costPer1kInput) || 0,
+        costPer1kOutput: Number(m.costPer1kOutput) || 0
+      })) : [],
+      capabilities: Array.isArray(raw.capabilities) ? raw.capabilities : ['llm'],
+      healthStatus: { status: 'unknown', lastChecked: now, consecutiveFailures: 0 },
+      latencyMs: 0,
+      successRate: Number(raw.successRate) || 0.99,
+      costPer1kTokens: Number(raw.costPer1kTokens) || 0,
+      isEnabled: raw.isEnabled !== false
+    };
   }
 
   private registerBuiltInProviders(): void {

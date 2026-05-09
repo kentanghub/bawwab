@@ -5,6 +5,7 @@ import { ImageGen } from './pages/ImageGen';
 import { Compare } from './pages/Compare';
 import { Embeddings } from './pages/Embeddings';
 import { Providers } from './pages/Providers';
+import { AddProvider } from './pages/AddProvider';
 import { Logs } from './pages/Logs';
 import { Settings } from './pages/Settings';
 
@@ -18,6 +19,7 @@ function App() {
           <Route path="/compare" element={<Compare />} />
           <Route path="/embeddings" element={<Embeddings />} />
           <Route path="/providers" element={<Providers />} />
+          <Route path="/providers/add" element={<AddProvider />} />
           <Route path="/logs" element={<Logs />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

@@ -1,77 +1,53 @@
-# Bawwab — Intelligent AI Gateway
+# Bawwab — Self-Hosted AI Gateway
 
-> **باب** (Arabic: "Gateway") — The smarter way to route, optimize, and manage AI providers.
+> **باب** (Arabic: "Gateway") — Route, optimize, and manage AI providers from your own machine.
 
-Bawwab is an open-source AI Gateway that improves upon existing solutions with intelligent routing, advanced token optimization, real-time health monitoring, and a modern dashboard.
+Bawwab is an **open-source, self-hosted AI Gateway** that unifies access to 40+ AI providers through a single OpenAI-compatible API. Features intelligent routing, automatic fallback, token optimization, real-time health monitoring, and a modern dark-mode dashboard.
 
-## 📑 Table of Contents
+**Your API keys stay on your machine. Always.**
 
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Configuration](#configuration)
-  - [Running Bawwab](#running-bawwab)
-- [Tutorial: First Run](#-tutorial-first-run)
-  - [Step 1: Start Bawwab](#step-1-start-bawwab)
-  - [Step 2: Open Dashboard](#step-2-open-dashboard)
-  - [Step 3: Check Health](#step-3-check-health)
-  - [Step 4: Configure Providers](#step-4-configure-providers)
-  - [Step 5: Test API](#step-5-test-api)
-  - [Step 6: Connect AI Tool](#step-6-connect-ai-tool)
-  - [Step 7: Monitor in Dashboard](#step-7-monitor-in-dashboard)
-- [Connect Your AI Tool](#-connect-your-ai-tool)
-- [Supported Providers](#-supported-providers)
-- [Architecture](#-architecture)
-- [Development](#-development)
-- [API Reference](#-api-reference)
-- [Environment Variables](#-environment-variables)
-- [Troubleshooting](#-troubleshooting)
-- [License](#-license)
+---
 
-## ✨ Features
+## Table of Contents
 
-### 🧠 Intelligent Routing
-- Automatic provider selection based on health, latency, cost, and capabilities
-- Smart fallback when providers fail
-- Combo model support (e.g., `combo/gpt4+claude`)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Step-by-Step Tutorial](#step-by-step-tutorial)
+- [Custom Providers](#custom-providers)
+- [Dashboard Guide](#dashboard-guide)
+- [API Reference](#api-reference)
+- [Connect Your AI Tool](#connect-your-ai-tool)
+- [Supported Providers](#supported-providers)
+- [Architecture](#architecture)
+- [Environment Variables](#environment-variables)
+- [Troubleshooting](#troubleshooting)
+- [Security](#security)
+- [License](#license)
 
-### 🗜️ Advanced Token Saver
-- 3 compression levels (light, medium, aggressive)
-- Tool result deduplication
-- Semantic chunking
-- Sliding window context management
-- Base64 image truncation
+---
 
-### 💓 Real-time Health Monitoring
-- Automatic health checks every 30 seconds
-- Latency tracking
-- Success rate calculation
-- Auto-disable unhealthy providers
+## Features
 
-### 📊 Modern Dashboard
-- Real-time metrics via WebSocket
-- Provider health visualization
-- Request logs
-- Token optimizer configuration
+| Feature | Description |
+|---------|-------------|
+| **Unified API** | Single OpenAI-compatible endpoint for all providers |
+| **Intelligent Routing** | Auto-select best provider by health, latency, cost |
+| **Auto Fallback** | Primary fails? Automatically tries 2 fallback providers |
+| **Custom Providers** | Add any provider via JSON config or dashboard UI |
+| **Token Optimizer** | 3-level compression + deduplication + semantic chunking |
+| **Health Monitoring** | Real-time provider health checks every 30s |
+| **Rate Limiting** | Per-API-key rate limits + monthly quotas |
+| **Dark Dashboard** | Modern monochrome UI served from same port |
+| **Zero Cloud** | Runs entirely on your machine — no external deploy |
 
-### 🔌 Plugin System
-- Easy provider addition via JSON config
-- Hot-swappable providers
-- Support for 40+ providers out of the box
+---
 
-## 🚀 Quick Start (Self-Hosted)
+## Quick Start
 
-Bawwab is designed to run **locally on your own machine**. No cloud deployment required — your API keys stay private.
+### Requirements
 
-### Prerequisites
-
-- **Node.js 18+** (check with `node --version`)
+- **Node.js 18+**
 - **npm**
-
-```bash
-node --version
-```
 
 ### 1. Clone & Install
 
@@ -83,7 +59,7 @@ npm install
 
 ### 2. Configure
 
-Run the interactive setup wizard:
+Run the interactive wizard:
 
 ```bash
 npm run setup
@@ -95,14 +71,16 @@ Or manually create `api/.env`:
 PORT=3001
 HOST=0.0.0.0
 NODE_ENV=production
-JWT_SECRET=your-secret
-ADMIN_API_KEY=your-admin-key
-OPENAI_API_KEY=sk-...        # optional
-GEMINI_API_KEY=AIza...       # optional
-DEEPSEEK_API_KEY=sk-...      # optional
-ANTHROPIC_API_KEY=sk-ant-... # optional
-TAVILY_API_KEY=tvly-...      # optional
-JINA_API_KEY=jina_...        # optional
+JWT_SECRET=your-secret-here
+ADMIN_API_KEY=bawwab_your-admin-key
+
+# Optional: add provider API keys
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=AIza...
+DEEPSEEK_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+TAVILY_API_KEY=tvly-...
+JINA_API_KEY=jina_...
 ```
 
 ### 3. Build & Run
@@ -112,354 +90,409 @@ npm run build
 npm start
 ```
 
-Open your browser: **http://localhost:3001** 🎉
-
-The React dashboard is served directly from the backend — no separate port needed.
+Open **http://localhost:3001** — dashboard and API run on the same port.
 
 ---
 
-## 📖 Tutorial: First Run
-
-This tutorial will guide you through your first Bawwab setup from start to finish.
+## Step-by-Step Tutorial
 
 ### Step 1: Start Bawwab
-
-Open your terminal and run:
 
 ```bash
 cd bawwab
 npm start
 ```
 
-You should see output like:
+You should see:
 
 ```
-╔═══════════════════════════════════════════════╗
-║                                               ║
-║   🚪 Bawwab — Intelligent AI Gateway          ║
-║                                               ║
-╚═══════════════════════════════════════════════╝
-
-📦 Building Bawwab for first run...
-🚀 Starting API Gateway...
-🎨 Starting Dashboard...
-
-✅ Bawwab is running!
-
-   🌐 Dashboard:    http://localhost:20128
-   🔌 API:          http://localhost:20128/v1
-   📖 API Docs:     http://localhost:20128/docs
-
-   Press Ctrl+C to stop
+🚪 Bawwab Gateway starting...
+🗄️ Database initialized
+📦 Loaded 11 providers
+💓 Health monitor started
+✅ Bawwab Gateway ready
+🚀 Bawwab API running on http://0.0.0.0:3001
 ```
 
 ### Step 2: Open Dashboard
 
-Open your browser and go to: **`http://localhost:20128`**
+Go to **http://localhost:3001**
 
-You will see:
-- **Stats cards** showing total requests, tokens, cost, and latency
-- **Charts** with requests over time
-- **Provider health** status list
+You'll see:
+- Stats cards (requests, tokens, cost, latency)
+- Hourly usage charts
+- Provider health status
 
-### Step 3: Check Health
+### Step 3: Set Admin Key
 
-Verify Bawwab is running correctly:
+1. Click **Settings** in the sidebar
+2. Enter your `ADMIN_API_KEY` from `.env`
+3. Click **Save**
 
-```bash
-curl http://localhost:20128/health
-```
+This unlocks provider management.
 
-Expected response:
-```json
-{
-  "status": "healthy",
-  "version": "0.1.0",
-  "services": {
-    "cache": false,
-    "healthMonitor": true
-  }
-}
-```
-
-### Step 4: Configure Providers
-
-1. Go to **Dashboard** → click **"Providers"** in the sidebar
-2. You will see a list of built-in providers:
-   - Kiro AI (free, no key needed)
-   - OpenCode Free (free, no key needed)
-   - OpenRouter (needs API key)
-   - Anthropic (needs API key)
-   - etc.
-
-3. **Enable providers** by clicking the toggle button
-4. For API key providers, add your key to `api/.env` and restart
-
-### Step 5: Test API
-
-Test with a simple chat completion:
+### Step 4: Test the API
 
 ```bash
-# List available models
-curl http://localhost:20128/v1/models
+# List all models
+curl http://localhost:3001/v1/models
 
-# Chat with a model (using free Kiro provider)
-curl http://localhost:20128/v1/chat/completions \
+# Chat completion (uses intelligent routing)
+curl http://localhost:3001/v1/chat/completions \
   -H "Content-Type: application/json" \
+  -H "x-api-key: your-admin-api-key" \
   -d '{
     "model": "kr/claude-sonnet-4",
     "messages": [{"role": "user", "content": "Hello, Bawwab!"}]
   }'
+
+# Generate image
+curl http://localhost:3001/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: your-admin-api-key" \
+  -d '{
+    "model": "poll/flux",
+    "prompt": "A futuristic gateway"
+  }'
 ```
 
-Expected response:
+### Step 5: Add a Custom Provider (Dashboard)
+
+1. Go to **Providers** → click **Add Provider**
+2. Fill in:
+   - **ID**: `myai`
+   - **Name**: `My Custom AI`
+   - **Base URL**: `https://api.myai.com/v1`
+   - **Auth Type**: Bearer
+   - **Model ID**: `my-model`
+3. Click **Add Provider**
+
+Set the API key in `.env` as `MYAI_API_KEY=sk-...` and restart.
+
+### Step 6: Add a Custom Provider (JSON Config)
+
+Create `api/config/providers.json`:
+
 ```json
 {
-  "id": "chatcmpl-xxx",
-  "object": "chat.completion",
-  "created": 1234567890,
-  "model": "kr/claude-sonnet-4",
-  "choices": [{
-    "index": 0,
-    "message": {
-      "role": "assistant",
-      "content": "Hello! How can I help you today?"
-    },
-    "finish_reason": "stop"
-  }]
+  "providers": [
+    {
+      "id": "myai",
+      "alias": "my",
+      "name": "My Custom AI",
+      "type": "apikey",
+      "baseUrl": "https://api.myai.com/v1",
+      "authType": "bearer",
+      "models": [
+        {
+          "id": "my-model",
+          "name": "My Model",
+          "contextWindow": 128000,
+          "supportsStreaming": true,
+          "supportsTools": true,
+          "costPer1kInput": 0.001,
+          "costPer1kOutput": 0.003
+        }
+      ],
+      "capabilities": ["llm"]
+    }
+  ]
 }
 ```
 
-### Step 6: Connect AI Tool
+Restart Bawwab — the provider loads automatically.
 
-Now connect your favorite AI coding tool:
+### Step 7: Connect Your AI Tool
 
-#### Claude Code
-
-```bash
-# Set API URL
-claude config set apiUrl http://localhost:20128/v1
-
-# Set API key (from your .env)
-claude config set apiKey your-admin-api-key
-
-# Start coding
-claude
-```
-
-#### Cursor IDE
-
-1. Open Cursor → Settings → AI Provider
-2. Select **"OpenAI Compatible"**
-3. Base URL: `http://localhost:20128/v1`
-4. API Key: `your-admin-api-key`
-5. Model: `kr/claude-sonnet-4` or any available model
-
-#### Cline (VS Code Extension)
-
-1. Open VS Code → Cline Settings
-2. API Provider: **"OpenAI Compatible"**
-3. Base URL: `http://localhost:20128/v1`
-4. API Key: `your-admin-api-key`
-
-#### Generic OpenAI-Compatible Tool
+Configure any OpenAI-compatible tool:
 
 ```
-Endpoint: http://localhost:20128/v1
-API Key: your-admin-api-key
-Model: kr/claude-sonnet-4
+Base URL:   http://localhost:3001/v1
+API Key:    your-admin-api-key
+Model:      kr/claude-sonnet-4   (or any available model)
 ```
 
-### Step 7: Monitor in Dashboard
-
-1. Go back to `http://localhost:20128`
-2. Click **"Dashboard"** in the sidebar
-3. Watch real-time metrics:
-   - Requests count increases
-   - Token usage updates
-   - Cost tracking
-   - Provider health status
-
-4. Click **"Logs"** to see detailed request history
+**Supported tools:** Claude Code, Cursor, Cline, Continue, Codex, and any OpenAI-compatible client.
 
 ---
 
-## 📝 Connect Your AI Tool
+## Custom Providers
 
-After Bawwab is running, configure your AI coding tool:
+### Via Dashboard (easiest)
 
-```
-Endpoint: http://localhost:20128/v1
-API Key: [your-admin-api-key from .env]
-Model: kr/claude-sonnet-4
-```
+Go to **Providers** → **Add Provider** and fill the form.
 
-### Supported Tools
+### Via JSON Config
 
-| Tool | Setup Guide |
-|------|-------------|
-| Claude Code | `claude config set apiUrl http://localhost:20128/v1` |
-| OpenClaw | Settings → API → Custom Endpoint |
-| Codex (OpenAI) | `codex --api-url http://localhost:20128/v1` |
-| Cursor | Settings → AI Provider → OpenAI Compatible |
-| Cline | Settings → API Provider → Custom |
-| Antigravity | Settings → API → Custom URL |
-| Copilot | GitHub Copilot settings |
-| Continue | config.json → apiBase |
-| Any OpenAI-compatible | Use endpoint above |
+Place a `providers.json` file in one of these locations:
+- `api/config/providers.json`
+- `providers.json` (working directory)
+- Path set by `PROVIDERS_CONFIG_PATH` env var
 
-## 🌐 Supported Providers
+Example: [api/config/providers.json.example](api/config/providers.json.example)
 
-### Free Providers (No API Key)
+### Via Environment Variable
 
-| Provider | Alias | Models | Features |
-|----------|-------|--------|----------|
-| **Kiro AI** | `kr` | Claude Sonnet 4 | Free unlimited |
-| **OpenCode Free** | `oc` | Various | No auth required |
+Set `PROVIDERS_CONFIG_PATH=/path/to/providers.json`
 
-### API Key Providers
+---
 
-| Provider | Alias | Pricing | Free Tier |
-|----------|-------|---------|-----------|
-| **OpenRouter** | `or` | Pay-per-use | 27+ free models, 200 req/day |
-| **Anthropic** | `anth` | $3-15/1M tokens | $5 trial |
-| **OpenAI** | `oa` | $0.15-75/1M tokens | $5 trial |
-| **DeepSeek** | `ds` | $0.14-2.19/1M tokens | 500M tokens free |
-| **Gemini** | `gem` | $0.15-10/1M tokens | 1M tokens/day free |
-| **GLM** | `glm` | $1-3/1M tokens | Trial credits |
+## Dashboard Guide
 
-## 🏗️ Architecture
+| Page | Path | What you can do |
+|------|------|-----------------|
+| **Dashboard** | `/` | Real-time metrics, charts, usage stats |
+| **Image Gen** | `/image-gen` | Generate images via Pollinations AI |
+| **Compare** | `/compare` | Side-by-side model comparison |
+| **Embeddings** | `/embeddings` | Convert text to vector embeddings |
+| **Providers** | `/providers` | View, toggle, add providers |
+| **Logs** | `/logs` | Request history with latency & tokens |
+| **Settings** | `/settings` | Set admin key, token optimizer config |
 
-```
-User Browser → http://localhost:20128
-                    │
-                    ├── / → Dashboard (Vite + React)
-                    └── /v1/* → API Gateway (Fastify)
-                                    │
-                                    ├── Intelligent Router
-                                    ├── Token Optimizer
-                                    ├── Health Monitor
-                                    └── Cache Manager
-```
+---
 
-## 🛠️ Development
-
-```bash
-# Start API in dev mode (hot reload)
-npm run dev:api
-
-# Start Dashboard in dev mode (another terminal)
-npm run dev:dashboard
-
-# Build for production
-npm run build
-
-# Run tests
-npm test
-```
-
-## 📖 API Reference
+## API Reference
 
 ### Chat Completions
 
 ```bash
-curl http://localhost:20128/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
-  -d '{
-    "model": "kr/claude-sonnet-4",
-    "messages": [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "Hello!"}
-    ],
-    "temperature": 0.7,
-    "max_tokens": 1000,
-    "stream": false
-  }'
+POST /v1/chat/completions
+Content-Type: application/json
+x-api-key: your-key
+
+{
+  "model": "kr/claude-sonnet-4",
+  "messages": [{"role": "user", "content": "Hello!"}],
+  "temperature": 0.7,
+  "stream": false
+}
 ```
 
-### List Models
+**Model aliases:** Use `kr/`, `oa/`, `gem/`, `ds/`, `anth/` prefixes or full IDs.
+
+**Combo mode:** `combo/gpt4o+claude-sonnet-4` sends to multiple providers in parallel.
+
+### Image Generation
 
 ```bash
-curl http://localhost:20128/v1/models
+POST /v1/images/generations
+{
+  "model": "poll/flux",
+  "prompt": "A cyberpunk city",
+  "size": "1024x1024"
+}
 ```
 
-### Health Check
+### Embeddings
 
 ```bash
-curl http://localhost:20128/health
+POST /v1/embeddings
+{
+  "model": "oa/text-embedding-3-small",
+  "input": "Hello world"
+}
 ```
 
-### Provider Status
+### Web Search
 
 ```bash
-curl http://localhost:20128/v1/providers
-curl http://localhost:20128/v1/providers/health
+POST /v1/web/search
+{
+  "query": "latest AI news"
+}
 ```
 
-## 📊 Dashboard Pages
+### Web Fetch
 
-| Page | URL | Description |
-|------|-----|-------------|
-| Dashboard | `/` | Real-time metrics & charts |
-| Providers | `/providers` | Manage AI providers |
-| Logs | `/logs` | Request history |
-| Settings | `/settings` | Token optimizer config |
+```bash
+POST /v1/web/fetch
+{
+  "url": "https://example.com/article"
+}
+```
 
-## 🛡️ Environment Variables
+### Audio
+
+```bash
+# Text to Speech
+POST /v1/audio/speech
+{ "model": "oa/tts-1", "input": "Hello", "voice": "alloy" }
+
+# Speech to Text
+POST /v1/audio/transcriptions
+{ "model": "oa/whisper-1", "file": "..." }
+```
+
+### Admin Endpoints
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/v1/admin/providers` | POST | Admin key | Add provider |
+| `/v1/admin/providers/:id/toggle` | PATCH | Admin key | Enable/disable |
+| `/v1/admin/providers/:id` | DELETE | Admin key | Remove provider |
+| `/v1/admin/metrics` | GET | Admin key | Get stats |
+| `/v1/admin/logs` | GET | Admin key | Get logs |
+
+---
+
+## Connect Your AI Tool
+
+### Claude Code
+
+```bash
+claude config set apiUrl http://localhost:3001/v1
+claude config set apiKey your-admin-api-key
+```
+
+### Cursor
+
+1. Settings → AI Provider → OpenAI Compatible
+2. Base URL: `http://localhost:3001/v1`
+3. API Key: `your-admin-api-key`
+
+### Cline (VS Code)
+
+1. Settings → API Provider → OpenAI Compatible
+2. Base URL: `http://localhost:3001/v1`
+3. API Key: `your-admin-api-key`
+
+### Generic
+
+```
+Base URL:   http://localhost:3001/v1
+API Key:    your-admin-api-key
+```
+
+---
+
+## Supported Providers
+
+### Built-in (11 providers)
+
+| Provider | Alias | Type | Capabilities |
+|----------|-------|------|--------------|
+| **Kiro AI** | `kr` | Free | LLM |
+| **OpenCode** | `oc` | Free | LLM |
+| **OpenRouter** | `or` | API Key | LLM, Embedding |
+| **GLM Coding** | `glm` | API Key | LLM |
+| **DeepSeek** | `ds` | API Key | LLM |
+| **Gemini** | `gem` | API Key | LLM, Embedding, Image, TTS, STT |
+| **OpenAI** | `oa` | API Key | LLM, Embedding, Image, TTS, STT |
+| **Pollinations** | `poll` | Free | Image |
+| **Jina AI** | `jn` | API Key | Embedding, Web Fetch |
+| **Tavily** | `tv` | API Key | Web Search |
+| **Anthropic** | `anth` | API Key | LLM, Image-to-Text |
+
+### Custom Providers
+
+Add unlimited custom providers via JSON config or dashboard. Bawwab auto-detects model compatibility and routes intelligently.
+
+---
+
+## Architecture
+
+```
+┌─────────────────┐
+│   Your Browser  │
+│  localhost:3001 │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────────────────┐
+│        Bawwab Gateway               │
+│  ┌───────────────────────────────┐  │
+│  │  Static Dashboard (React)     │  │
+│  │  /  → index.html              │  │
+│  └───────────────────────────────┘  │
+│  ┌───────────────────────────────┐  │
+│  │  API (Fastify)                │  │
+│  │  /v1/chat/completions         │  │
+│  │  /v1/images/generations       │  │
+│  │  /v1/admin/providers          │  │
+│  └───────────────────────────────┘  │
+│         │                           │
+│    Intelligent Router               │
+│    ├─ Health scoring                │
+│    ├─ Latency tracking              │
+│    ├─ Cost optimization             │
+│    └─ Auto fallback (max 2)         │
+└─────────┬───────────────────────────┘
+          │
+    ┌─────┴─────┬─────────┬──────────┐
+    ▼           ▼         ▼          ▼
+ Provider A  Provider B  ...    Provider N
+```
+
+---
+
+## Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `JWT_SECRET` | Yes | — | Secret for JWT tokens |
-| `ADMIN_API_KEY` | Yes | — | Admin API key |
-| `PORT` | No | 3001 | API port |
-| `REDIS_URL` | No | — | Redis connection (optional) |
-| `RATE_LIMIT` | No | 100 | Requests per minute |
+| `JWT_SECRET` | Yes | random | JWT signing secret |
+| `ADMIN_API_KEY` | Yes | — | Admin API key for dashboard |
+| `PORT` | No | 3001 | Server port |
+| `HOST` | No | 0.0.0.0 | Bind address |
+| `NODE_ENV` | No | development | production / development |
+| `LOG_LEVEL` | No | info | debug, info, warn, error |
+| `DB_PATH` | No | `./data/bawwab.db` | SQLite database path |
+| `RATE_LIMIT` | No | 60 | Requests per minute per key |
+| `PROVIDERS_CONFIG_PATH` | No | — | Custom providers JSON path |
+| `{PROVIDER}_API_KEY` | No | — | Provider-specific API keys |
 
-## 🔧 Troubleshooting
+---
+
+## Troubleshooting
 
 ### Port already in use
 
 ```bash
-# Find process using port 20128
-lsof -i :20128
-
-# Kill it
-kill -9 <PID>
-
-# Or use different port
+# Use different port
 PORT=3002 npm start
 ```
 
 ### Build errors
 
 ```bash
-# Clean and rebuild
 rm -rf node_modules api/node_modules dashboard/node_modules
 rm -rf api/dist dashboard/dist
 npm install
 npm run build
 ```
 
-### Provider connection issues
+### Dashboard toggle not working
 
-1. Check provider health: `curl http://localhost:20128/v1/providers/health`
-2. Verify API key in `api/.env`
+Make sure you've set the **Admin API Key** in **Settings**. The key must match `ADMIN_API_KEY` in your `.env`.
+
+### Provider returns error
+
+1. Check health: `curl /v1/providers/health`
+2. Verify API key in `.env`
 3. Check provider status page
 
-### Dashboard not loading
+---
 
-1. Ensure build completed: `npm run build`
-2. Check browser console for errors
-3. Try clearing browser cache
+## Security
 
-## 📝 License
+Bawwab is designed with security in mind for self-hosted deployments:
+
+- **API keys hashed** with SHA-256 before storage
+- **No upstream keys exposed** in responses or logs
+- **SQL injection safe** — parameterized queries throughout
+- **Rate limiting** per API key + monthly quotas
+- **Input validation** on all provider configs (URL validation, ID sanitization)
+- **CORS restricted** in production mode
+- **Admin endpoints require** either JWT or admin API key
+- **Request body limit** capped at 10MB
+- **Graceful shutdown** handles SIGTERM/SIGINT properly
+
+**⚠️ Important:** Keep your `.env` file secure. Do not commit it. It's already in `.gitignore`.
+
+---
+
+## License
 
 MIT License — see [LICENSE](LICENSE)
-
-## 🤝 Contributing
-
-Contributions welcome! Please read our [Contributing Guide](CONTRIBUTING.md).
 
 ---
 

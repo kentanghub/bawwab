@@ -1,0 +1,30 @@
+{
+  "_comment": "Add your custom providers here. They will be loaded on startup alongside built-in providers.",
+  "providers": [
+    {
+      "id": "custom-openai",
+      "alias": "coa",
+      "name": "Custom OpenAI",
+      "type": "apikey",
+      "baseUrl": "https://api.custom-ai.com/v1",
+      "authType": "bearer",
+      "authHeader": "Authorization",
+      "models": [
+        {
+          "id": "custom-gpt",
+          "name": "Custom GPT",
+          "contextWindow": 128000,
+          "maxTokens": 4096,
+          "supportsStreaming": true,
+          "supportsVision": false,
+          "supportsTools": true,
+          "supportsThinking": false,
+          "costPer1kInput": 0.001,
+          "costPer1kOutput": 0.003
+        }
+      ],
+      "capabilities": ["llm"],
+      "isEnabled": true
+    }
+  ]
+}

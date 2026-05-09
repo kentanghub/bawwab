@@ -38,11 +38,13 @@ interface AppState {
   isConnected: boolean;
   wsStatus: WebSocketStatus;
   wsError: string | null;
+  adminKey: string | null;
   setProviders: (providers: Provider[]) => void;
   setMetrics: (metrics: Metrics) => void;
   setConnected: (connected: boolean) => void;
   setWsStatus: (status: Partial<WebSocketStatus>) => void;
   setWsError: (error: string | null) => void;
+  setAdminKey: (key: string | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -51,11 +53,17 @@ export const useStore = create<AppState>((set) => ({
   isConnected: false,
   wsStatus: { metrics: 'disconnected', health: 'disconnected' },
   wsError: null,
+  adminKey: localStorage.getItem('bawwab_admin_key'),
   setProviders: (providers) => set({ providers }),
   setMetrics: (metrics) => set({ metrics }),
   setConnected: (isConnected) => set({ isConnected }),
   setWsStatus: (status) => set((state) => ({ 
     wsStatus: { ...state.wsStatus, ...status } 
   })),
-  setWsError: (error) => set({ wsError: error })
+  setWsError: (error) => set({ wsError: error }),
+  setAdminKey: (key) => {
+    if (key) localStorage.setItem('bawwab_admin_key', key);
+    else localStorage.removeItem('bawwab_admin_key');
+    set({ adminKey: key });
+  }
 }));

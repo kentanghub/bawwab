@@ -8,6 +8,8 @@ pnpm-lock.yaml
 dist/
 build/
 *.tsbuildinfo
+api/dist/
+dashboard/dist/
 
 # Environment files
 .env
@@ -39,3 +41,4 @@ temp/
 tmp/
 api/data/*.db
 api/data/*.db-*
+api/config/providers.json

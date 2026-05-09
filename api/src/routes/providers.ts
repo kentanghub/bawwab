@@ -4,17 +4,24 @@ import { healthMonitor } from '../services/health-monitor.js';
 import { metricsCollector } from '../services/metrics.js';
 import { getRecentLogs } from '../services/database.js';
 
-// Auth middleware - verifies JWT token
+// Auth middleware - verifies JWT token OR admin API key
 async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
+  const apiKey = request.headers['x-api-key']?.toString();
+
+  // Allow admin API key as alternative to JWT (for dashboard convenience)
+  if (apiKey && apiKey === process.env.ADMIN_API_KEY) {
+    request.user = { role: 'admin' };
+    return;
+  }
+
   try {
     await request.jwtVerify();
-    // Check if user has admin role
     const payload = request.user as any;
     if (payload.role !== 'admin') {
       return reply.status(403).send({ error: 'Forbidden - Admin access required' });
     }
   } catch {
-    return reply.status(401).send({ error: 'Unauthorized - Valid JWT token required' });
+    return reply.status(401).send({ error: 'Unauthorized - Valid JWT token or admin API key required' });
   }
 }
 
@@ -66,6 +73,76 @@ export async function adminRoutes(app: FastifyInstance) {
     if (!provider) return reply.status(404).send({ error: 'Provider not found' });
     await pluginManager.updateProvider(id, { isEnabled: !provider.isEnabled });
     return { success: true, isEnabled: !provider.isEnabled };
+  });
+
+  // Add new provider at runtime
+  app.post('/providers', async (request, reply) => {
+    const body = request.body as any;
+
+    if (!body.id || !body.name || !body.baseUrl) {
+      return reply.status(400).send({ error: 'Missing required fields: id, name, baseUrl' });
+    }
+
+    // Validate URL
+    try {
+      const url = new URL(body.baseUrl);
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        return reply.status(400).send({ error: 'Invalid baseUrl protocol' });
+      }
+    } catch {
+      return reply.status(400).send({ error: 'Invalid baseUrl' });
+    }
+
+    // Sanitize ID
+    const id = String(body.id).toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    if (!id) {
+      return reply.status(400).send({ error: 'Invalid provider id' });
+    }
+
+    if (pluginManager.getProvider(id)) {
+      return reply.status(409).send({ error: 'Provider with this id already exists' });
+    }
+
+    const provider = {
+      id,
+      alias: String(body.alias || body.id).toLowerCase(),
+      name: String(body.name),
+      type: ['free', 'apikey', 'oauth'].includes(body.type) ? body.type : 'apikey',
+      baseUrl: body.baseUrl,
+      authType: ['none', 'bearer', 'apikey'].includes(body.authType) ? body.authType : 'none',
+      authHeader: body.authHeader ? String(body.authHeader) : undefined,
+      models: Array.isArray(body.models) ? body.models.map((m: any) => ({
+        id: String(m.id),
+        name: String(m.name || m.id),
+        contextWindow: Number(m.contextWindow) || 128000,
+        maxTokens: Number(m.maxTokens) || 4096,
+        supportsStreaming: Boolean(m.supportsStreaming),
+        supportsVision: Boolean(m.supportsVision),
+        supportsTools: Boolean(m.supportsTools),
+        supportsThinking: Boolean(m.supportsThinking),
+        costPer1kInput: Number(m.costPer1kInput) || 0,
+        costPer1kOutput: Number(m.costPer1kOutput) || 0
+      })) : [],
+      capabilities: Array.isArray(body.capabilities) ? body.capabilities : ['llm'],
+      healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
+      latencyMs: 0,
+      successRate: Number(body.successRate) || 0.99,
+      costPer1kTokens: Number(body.costPer1kTokens) || 0,
+      isEnabled: body.isEnabled !== false
+    };
+
+    await pluginManager.addProvider(provider as any);
+    return { success: true, provider: { id: provider.id, name: provider.name } };
+  });
+
+  // Remove provider
+  app.delete('/providers/:id', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const provider = pluginManager.getProvider(id);
+    if (!provider) return reply.status(404).send({ error: 'Provider not found' });
+
+    await pluginManager.removeProvider(id);
+    return { success: true, message: `Provider ${id} removed` };
   });
 
   app.get('/metrics', async () => {
