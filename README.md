@@ -35,92 +35,155 @@ Bawwab is an open-source AI Gateway that improves upon existing solutions with i
 - Hot-swappable providers
 - Support for 40+ providers out of the box
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│           DASHBOARD (Vite + React)          │
-│  Real-time metrics · Provider health · Logs  │
-└─────────────────────┬───────────────────────┘
-                      │ WebSocket / HTTP
-┌─────────────────────▼───────────────────────┐
-│        API GATEWAY (Fastify + TypeScript)   │
-│  ┌─────────┐ ┌──────────┐ ┌─────────────┐  │
-│  │  Auth   │ │  Cache   │ │   Router    │  │
-│  │ (JWT)   │ │ (Redis)  │ │(Intelligent)│  │
-│  └─────────┘ └──────────┘ └─────────────┘  │
-│  ┌─────────┐ ┌──────────┐ ┌─────────────┐  │
-│  │  Token  │ │  Plugin  │ │   Health    │  │
-│  │  Saver  │ │  Manager │ │   Monitor   │  │
-│  │(Advanced)│ │(Hot-swap)│ │ (Auto-check)│  │
-│  └─────────┘ └──────────┘ └─────────────┘  │
-└─────────────────────┬───────────────────────┘
-                      │ HTTP/SSE
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
-   [Provider A] [Provider B] [Provider C]
-   Claude/GPT   GLM/DeepSeek  Free Tier
-```
-
-## 🚀 Quick Start
+## 🚀 Quick Start (Local Installation)
 
 ### Prerequisites
-- Node.js 18+
-- Redis (optional, falls back to in-memory)
+- Node.js 18+ (check with `node --version`)
 
-### Installation
+### Option 1: Clone & Run (Recommended)
 
 ```bash
-# Clone
+# Clone the repo
 git clone https://github.com/kentanghub/bawwab.git
 cd bawwab
 
 # Install dependencies
 npm install
 
-# Configure
+# Configure (copy and edit .env)
 cp api/.env.example api/.env
-# Edit api/.env with your API keys
+# Edit api/.env and add your API keys
 
-# Run development
-npm run dev
+# Build & Start
+npm run build
+npm start
 ```
 
-### Services
-- **API Gateway**: http://localhost:3001
-- **Dashboard**: http://localhost:3000
-- **API Docs**: http://localhost:3001/docs
+🎉 **Dashboard opens at** `http://localhost:20128`
 
-## 📖 Usage
+### Option 2: Global Install via npm
 
-### Connect Your AI Tool
+```bash
+# Install globally
+npm install -g bawwab
 
-Configure your AI coding tool to use Bawwab:
+# Run anywhere
+bawwab
+```
+
+🎉 **Dashboard opens at** `http://localhost:20128`
+
+### Option 3: Using npx (No Install)
+
+```bash
+npx bawwab
+```
+
+## 📝 Connect Your AI Tool
+
+After Bawwab is running, configure your AI coding tool:
 
 ```
-Endpoint: http://localhost:3001/v1
-API Key: [your-admin-api-key]
+Endpoint: http://localhost:20128/v1
+API Key: [your-admin-api-key from .env]
 Model: kr/claude-sonnet-4
 ```
 
-### Supported Models
+### Supported Tools
+- Claude Code
+- OpenClaw
+- Codex (OpenAI)
+- Cursor
+- Cline
+- Antigravity
+- Copilot
+- Continue
+- Any OpenAI-compatible tool
 
-| Model | Provider | Context | Features |
-|-------|----------|---------|----------|
-| Claude Sonnet 4 | Anthropic | 200K | Vision, Tools, Thinking |
-| GPT-4o | OpenAI | 128K | Vision, Tools |
-| DeepSeek Chat | DeepSeek | 64K | Thinking, Tools |
-| Gemini 2.5 Pro | Google | 1M | Vision, Tools, TTS |
-| GLM 4.5 | Zhipu | 128K | Vision, Thinking |
+## 🌐 Supported Providers
 
-## 🛠️ Tech Stack
+### Free Providers (No API Key)
+- **Kiro AI** — Free Claude unlimited
+- **OpenCode Free** — No auth required
 
-- **API Gateway**: Fastify, TypeScript, Zod
-- **Dashboard**: React, Vite, Tailwind CSS, Recharts
-- **Cache**: Redis (with in-memory fallback)
-- **Auth**: JWT, Rate Limiting
+### API Key Providers
+- **OpenRouter** — 27+ free models, 200 req/day
+- **Anthropic** — Claude Sonnet/Opus
+- **OpenAI** — GPT-4o, GPT-4o-mini
+- **DeepSeek** — DeepSeek Chat/Reasoner
+- **Gemini** — Gemini 2.5 Pro/Flash
+- **GLM** — GLM 4.5
 
-## 📄 License
+## 🏗️ Architecture
+
+```
+User Browser → http://localhost:20128
+                    │
+                    ├── / → Dashboard (Vite + React)
+                    └── /v1/* → API Gateway (Fastify)
+                                    │
+                                    ├── Intelligent Router
+                                    ├── Token Optimizer
+                                    ├── Health Monitor
+                                    └── Cache Manager
+```
+
+## 🛠️ Development
+
+```bash
+# Start API in dev mode
+npm run dev:api
+
+# Start Dashboard in dev mode (another terminal)
+npm run dev:dashboard
+
+# Build for production
+npm run build
+```
+
+## 📖 API Endpoints
+
+### Chat Completions
+```bash
+curl http://localhost:20128/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key" \
+  -d '{
+    "model": "kr/claude-sonnet-4",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+### List Models
+```bash
+curl http://localhost:20128/v1/models
+```
+
+### Health Check
+```bash
+curl http://localhost:20128/health
+```
+
+## 📊 Dashboard Pages
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Dashboard | `/` | Real-time metrics & charts |
+| Providers | `/providers` | Manage AI providers |
+| Logs | `/logs` | Request history |
+| Settings | `/settings` | Token optimizer config |
+
+## 🛡️ Environment Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `JWT_SECRET` | Yes | — | Secret for JWT tokens |
+| `ADMIN_API_KEY` | Yes | — | Admin API key |
+| `PORT` | No | 3001 | API port |
+| `REDIS_URL` | No | — | Redis connection (optional) |
+| `RATE_LIMIT` | No | 100 | Requests per minute |
+
+## 📝 License
 
 MIT License — see [LICENSE](LICENSE)
 
@@ -130,4 +193,4 @@ Contributions welcome! Please read our [Contributing Guide](CONTRIBUTING.md).
 
 ---
 
-Built with 💚 by the Bawwab team. Inspired by the open-source community.
+Built with 💚 by the Bawwab team.
