@@ -283,7 +283,6 @@ class VirtualKeyManager {
   }
 
   private resetCountersIfNeeded(key: VirtualKey): void {
-    const now = new Date();
     const dayStart = this.dayStart();
     const monthStart = this.monthStart();
 

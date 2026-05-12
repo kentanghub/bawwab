@@ -71,9 +71,9 @@ export class ToolCompressor {
       // Grep output
       [/[^:]+:\d+:[^\n]+/m, 'grep'],
       // Find output (list of paths)
-      [/^([\/.~]?[\w\-/]+\/)+[\w\-.]+$/m, 'find'],
+      [/^([/.~]?[\w/-]+\/)+[\w.-]+$/m, 'find'],
       // ls output
-      [/^[\-dlrwxsSt]+\s+\d+\s+\w+\s+\w+\s+\d+/m, 'ls'],
+      [/^[-dlrwxsSt]+\s+\d+\s+\w+\s+\w+\s+\d+/m, 'ls'],
       // Tree output
       [/^[│├└─\s]*[\w\-.]+\/?$/m, 'tree'],
       // Error log (repeated patterns)
@@ -344,7 +344,7 @@ export class ToolCompressor {
 
     for (const line of lines) {
       // Extract error pattern (remove timestamps, line numbers)
-      const pattern = line.replace(/\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}[\.,]?\d*/g, '')
+      const pattern = line.replace(/\d{4}-\d{2}-\d{2}[\sT]\d{2}:\d{2}:\d{2}[.,]?\d*/g, '')
         .replace(/:\d+\)?$/g, '')
         .replace(/0x[a-f0-9]+/gi, '0x...')
         .trim();

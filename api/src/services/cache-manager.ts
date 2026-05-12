@@ -57,7 +57,8 @@ class CacheManager {
   }
 
   isConnected(): boolean {
-    return this.connected;
+    // Memory cache is always available as fallback
+    return true;
   }
 
   async get(key: string): Promise<string | null> {

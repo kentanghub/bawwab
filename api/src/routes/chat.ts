@@ -399,7 +399,7 @@ async function forwardWithFallback(
   for (const provider of providers) {
     try {
       // Use smart fallback model mapping
-      let modelId = plan.modelMapping.get(provider.id) || decision.modelId;
+      const modelId = plan.modelMapping.get(provider.id) || decision.modelId;
       
       const result = await forwardToProvider(provider, modelId, request, stream, cavemanMode);
       

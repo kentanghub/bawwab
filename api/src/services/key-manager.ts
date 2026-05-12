@@ -71,7 +71,7 @@ export class KeyManager {
     }
 
     // Round-robin among healthy keys
-    let counter = (this.counters.get(providerId) ?? -1) + 1;
+    const counter = (this.counters.get(providerId) ?? -1) + 1;
     const selected = healthy[counter % healthy.length];
     this.counters.set(providerId, counter);
     selected.lastUsed = new Date();
