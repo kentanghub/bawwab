@@ -3,7 +3,7 @@ import { virtualKeyManager } from '../services/virtual-keys.js';
 
 export async function virtualKeyRoutes(app: FastifyInstance) {
   // List keys (admin: all, user: own)
-  app.get('/keys', async (request, reply) => {
+  app.get('/virtual-keys', async (request, reply) => {
     const auth = request.headers['x-api-key'];
     const isAdmin = auth === process.env.ADMIN_API_KEY;
     const owner = isAdmin ? undefined : (request.query as any).owner;
@@ -22,7 +22,7 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
   });
 
   // Create key
-  app.post('/keys', async (request, reply) => {
+  app.post('/virtual-keys', async (request, reply) => {
     const auth = request.headers['x-api-key'];
     const isAdmin = auth === process.env.ADMIN_API_KEY;
 
@@ -57,7 +57,7 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
   });
 
   // Get single key usage
-  app.get('/keys/:id', async (request, reply) => {
+  app.get('/virtual-keys/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const summary = virtualKeyManager.getUsageSummary(id);
     if (!summary) return reply.status(404).send({ error: 'Key not found' });
@@ -65,7 +65,7 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
   });
 
   // Revoke key
-  app.post('/keys/:id/revoke', async (request, reply) => {
+  app.post('/virtual-keys/:id/revoke', async (request, reply) => {
     const auth = request.headers['x-api-key'];
     if (auth !== process.env.ADMIN_API_KEY) {
       return reply.status(401).send({ error: 'Unauthorized' });
@@ -77,7 +77,7 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
   });
 
   // Delete key
-  app.delete('/keys/:id', async (request, reply) => {
+  app.delete('/virtual-keys/:id', async (request, reply) => {
     const auth = request.headers['x-api-key'];
     if (auth !== process.env.ADMIN_API_KEY) {
       return reply.status(401).send({ error: 'Unauthorized' });

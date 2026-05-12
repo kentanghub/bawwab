@@ -13,7 +13,7 @@ export async function batchRoutes(app: FastifyInstance) {
 
     // Forward each item through the normal chat handler
     const results = await batchProcessor.process(body.items, async (itemBody, stream) => {
-      const res = await fetch(`http://localhost:${process.env.PORT || 3000}/v1/chat`, {
+      const res = await fetch(`http://localhost:${process.env.PORT || 3000}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': request.headers['x-api-key'] as string },
         body: JSON.stringify(itemBody),
