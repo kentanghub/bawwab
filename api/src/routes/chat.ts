@@ -465,9 +465,20 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
   if (!apiKey && oauthManager.hasToken(provider.id)) {
     apiKey = await oauthManager.getAccessToken(provider.id);
   }
+
+  // Fallback to cookie-based auth if available (for cookie providers like kiro)
+  let cookieHeader: string | undefined;
+  let cookieUserAgent: string | undefined;
+  if (provider.authType === 'cookie' || oauthManager.hasCookies(provider.id)) {
+    const cookieCred = oauthManager.getCookies(provider.id);
+    if (cookieCred) {
+      cookieHeader = cookieCred.cookies;
+      cookieUserAgent = cookieCred.userAgent;
+    }
+  }
   
-  if (!apiKey && provider.authType !== 'none') {
-    throw new Error(`API key not configured for provider "${provider.name}". Set the ${envKey} environment variable or connect via OAuth.`);
+  if (!apiKey && !cookieHeader && provider.authType !== 'none') {
+    throw new Error(`API key not configured for provider "${provider.name}". Set the ${envKey} environment variable, connect via OAuth, or submit cookies via /oauth/${provider.id}/cookie-entry.`);
   }
   
   const safeApiKey = apiKey || '';
@@ -476,10 +487,17 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
     'Content-Type': 'application/json'
   };
   
+  // Optional: use stored user-agent for fingerprint matching on cookie-based providers
+  if (cookieUserAgent) {
+    headers['User-Agent'] = cookieUserAgent;
+  }
+  
   if (provider.authType === 'bearer') {
     headers['Authorization'] = `Bearer ${safeApiKey}`;
   } else if (provider.authType === 'apikey') {
     headers[provider.authHeader || 'Authorization'] = safeApiKey;
+  } else if (provider.authType === 'cookie' && cookieHeader) {
+    headers['Cookie'] = cookieHeader;
   }
 
   // Detect provider format and translate request

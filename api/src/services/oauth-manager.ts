@@ -83,8 +83,20 @@ const OAUTH_CONFIGS: Record<string, OAuthConfig> = {
 };
 
 // Token-only providers (no OAuth flow — users paste their own API keys)
-const TOKEN_PROVIDERS = ['cursor', 'cline', 'kiro', 'antigravity'];
+const TOKEN_PROVIDERS = ['cursor', 'cline', 'antigravity'];
 const tokenOnlyStore: Map<string, string> = new Map();
+
+// Cookie-based providers (session extracted from browser)
+const COOKIE_PROVIDERS = ['kiro'];
+
+export interface CookieCredential {
+  cookies: string;         // Raw Cookie header value, e.g. "aor_session=xxx; aor_token=yyy"
+  userAgent?: string;      // Optional: browser user-agent for fingerprint matching
+  expiresAt?: Date;        // Optional: cookie expiry
+  createdAt: Date;
+}
+
+const cookieStore: Map<string, CookieCredential> = new Map();
 
 // In-memory token store (use DB in production)
 const tokenStore: Map<string, OAuthToken> = new Map();
@@ -245,6 +257,9 @@ export class OAuthManager {
     if (TOKEN_PROVIDERS.includes(provider)) {
       return tokenOnlyStore.has(provider);
     }
+    if (COOKIE_PROVIDERS.includes(provider)) {
+      return this.hasCookies(provider);
+    }
     const token = tokenStore.get(provider);
     if (!token) return false;
     return new Date(Date.now() + 300000) <= token.expiresAt;
@@ -253,8 +268,8 @@ export class OAuthManager {
   /**
    * Get OAuth + token status for all providers
    */
-  getStatus(): Record<string, { connected: boolean; expiresAt?: Date; type: 'oauth' | 'token' }> {
-    const result: Record<string, { connected: boolean; expiresAt?: Date; type: 'oauth' | 'token' }> = {};
+  getStatus(): Record<string, { connected: boolean; expiresAt?: Date; type: 'oauth' | 'token' | 'cookie' }> {
+    const result: Record<string, { connected: boolean; expiresAt?: Date; type: 'oauth' | 'token' | 'cookie' }> = {};
     for (const provider of Object.keys(OAUTH_CONFIGS)) {
       const token = tokenStore.get(provider);
       result[provider] = {
@@ -267,6 +282,14 @@ export class OAuthManager {
       result[provider] = {
         connected: tokenOnlyStore.has(provider),
         type: 'token'
+      };
+    }
+    for (const provider of COOKIE_PROVIDERS) {
+      const cred = this.getCookies(provider);
+      result[provider] = {
+        connected: !!cred,
+        expiresAt: cred?.expiresAt,
+        type: 'cookie'
       };
     }
     return result;
@@ -293,6 +316,63 @@ export class OAuthManager {
 
   getTokenOnlyProviders(): string[] {
     return [...TOKEN_PROVIDERS];
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Cookie-based providers (browser session extraction)
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Store cookie credentials for a provider
+   */
+  setCookies(provider: string, cookies: string, userAgent?: string, expiresAt?: Date): void {
+    if (!COOKIE_PROVIDERS.includes(provider)) {
+      throw new Error(`Provider ${provider} does not support cookie-based auth`);
+    }
+    cookieStore.set(provider, {
+      cookies,
+      userAgent,
+      expiresAt,
+      createdAt: new Date()
+    });
+    logger.info(`[OAuth] Cookies stored for ${provider}`);
+  }
+
+  /**
+   * Get cookie credentials for a provider
+   */
+  getCookies(provider: string): CookieCredential | undefined {
+    const cred = cookieStore.get(provider);
+    if (!cred) return undefined;
+    // Check expiry
+    if (cred.expiresAt && new Date() > cred.expiresAt) {
+      logger.warn(`[OAuth] Cookies expired for ${provider}`);
+      cookieStore.delete(provider);
+      return undefined;
+    }
+    return cred;
+  }
+
+  /**
+   * Check if provider has valid cookie credentials
+   */
+  hasCookies(provider: string): boolean {
+    return this.getCookies(provider) !== undefined;
+  }
+
+  /**
+   * Get cookie-based providers list
+   */
+  getCookieProviders(): string[] {
+    return [...COOKIE_PROVIDERS];
+  }
+
+  /**
+   * Clear cookie credentials for a provider
+   */
+  clearCookies(provider: string): void {
+    cookieStore.delete(provider);
+    logger.info(`[OAuth] Cookies cleared for ${provider}`);
   }
 }
 

@@ -6,7 +6,7 @@ import { logger } from '../services/logger.js';
 const activePolls = new Map<string, NodeJS.Timeout>();
 
 export async function oauthRoutes(app: FastifyInstance) {
-  // Get supported OAuth providers (including token-only)
+  // Get supported OAuth providers (including token-only and cookie-based)
   app.get('/oauth/providers', async () => {
     const oauthProviders = oauthManager.getSupportedProviders().map(id => ({
       id,
@@ -22,8 +22,15 @@ export async function oauthRoutes(app: FastifyInstance) {
       connected: oauthManager.hasToken(id)
     }));
 
+    const cookieProviders = oauthManager.getCookieProviders().map(id => ({
+      id,
+      name: id.charAt(0).toUpperCase() + id.slice(1),
+      type: 'cookie' as const,
+      connected: oauthManager.hasToken(id)
+    }));
+
     return {
-      providers: [...oauthProviders, ...tokenProviders]
+      providers: [...oauthProviders, ...tokenProviders, ...cookieProviders]
     };
   });
 
@@ -49,6 +56,60 @@ export async function oauthRoutes(app: FastifyInstance) {
         message: (error as Error).message
       });
     }
+  });
+
+  // Cookie-based provider: store browser session cookies
+  app.post('/oauth/:provider/cookie-entry', async (request, reply) => {
+    const { provider } = request.params as { provider: string };
+    const { cookies, userAgent, expiresAt } = request.body as {
+      cookies: string;
+      userAgent?: string;
+      expiresAt?: string;
+    };
+
+    if (!cookies) {
+      return reply.status(400).send({ error: 'cookies is required' });
+    }
+
+    try {
+      const expiry = expiresAt ? new Date(expiresAt) : undefined;
+      oauthManager.setCookies(provider, cookies, userAgent, expiry);
+      return {
+        success: true,
+        status: 'connected',
+        message: `${provider} cookies stored successfully`,
+        expiresAt: expiry?.toISOString()
+      };
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Failed to store cookies',
+        message: (error as Error).message
+      });
+    }
+  });
+
+  // Get stored cookies (admin only, masked)
+  app.get('/oauth/:provider/cookies', async (request, reply) => {
+    const auth = request.headers['x-api-key'];
+    if (auth !== process.env.ADMIN_API_KEY) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { provider } = request.params as { provider: string };
+    const cred = oauthManager.getCookies(provider);
+
+    if (!cred) {
+      return reply.status(404).send({ error: 'No cookies found for this provider' });
+    }
+
+    return {
+      provider,
+      connected: true,
+      cookies: `${cred.cookies.slice(0, 20)}...${cred.cookies.slice(-10)}`,
+      userAgent: cred.userAgent,
+      expiresAt: cred.expiresAt?.toISOString(),
+      createdAt: cred.createdAt.toISOString()
+    };
   });
 
   // Step 1: Request device code

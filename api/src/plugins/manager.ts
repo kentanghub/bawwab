@@ -82,9 +82,9 @@ class PluginManager {
       id: String(raw.id).toLowerCase().replace(/[^a-z0-9_-]/g, ''),
       alias: String(raw.alias || raw.id).toLowerCase(),
       name: String(raw.name),
-      type: ['free', 'apikey', 'oauth'].includes(raw.type) ? raw.type : 'apikey',
+      type: ['free', 'apikey', 'oauth', 'cookie'].includes(raw.type) ? raw.type : 'apikey',
       baseUrl: raw.baseUrl,
-      authType: ['none', 'bearer', 'apikey'].includes(raw.authType) ? raw.authType : 'none',
+      authType: ['none', 'bearer', 'apikey', 'cookie'].includes(raw.authType) ? raw.authType : 'none',
       authHeader: raw.authHeader ? String(raw.authHeader) : undefined,
       models: Array.isArray(raw.models) ? raw.models.map((m: any) => ({
         id: String(m.id),
@@ -114,10 +114,13 @@ class PluginManager {
         id: 'kiro',
         alias: 'kr',
         name: 'Kiro AI',
-        type: 'free',
+        type: 'cookie',
         baseUrl: 'https://api.kiro.dev',
-        authType: 'none',
-        models: [{ id: 'kr/claude-sonnet-4', name: 'Claude Sonnet 4', contextWindow: 200000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 }],
+        authType: 'cookie',
+        models: [
+          { id: 'kr/claude-sonnet-4', name: 'Claude Sonnet 4', contextWindow: 200000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 },
+          { id: 'kr/claude-sonnet-4.5', name: 'Claude Sonnet 4.5', contextWindow: 200000, maxTokens: 8192, supportsStreaming: true, supportsVision: true, supportsTools: true, supportsThinking: false, costPer1kInput: 0, costPer1kOutput: 0 }
+        ],
         capabilities: ['llm'],
         healthStatus: { status: 'unknown', lastChecked: new Date(), consecutiveFailures: 0 },
         latencyMs: 0,
