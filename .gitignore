@@ -42,3 +42,10 @@ tmp/
 api/data/*.db
 api/data/*.db-*
 api/config/providers.json
+
+# Maestro runtime state
+.maestro/missions/
+.maestro/sessions/
+.maestro/tasks/local-history/
+.maestro/evidence/
+.maestro/runs/
