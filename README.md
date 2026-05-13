@@ -34,6 +34,12 @@ Intelligent routing • Smart fallback • RTK Token Saver • Multi-account •
 - **Request Logging** — JSONL daily log files dengan 30-day rotation
 - **Cloud Sync** — Export/import state untuk multi-device
 - **Real-time Dashboard** — Monitoring quota, circuit breaker, cache, webhooks
+- **Dashboard Auth** — Password protection via `DASHBOARD_PASSWORD` env var
+- **Unit Tests** — 63 tests covering routing, fallback, RTK, rate limiter, aliases
+- **Docker** — Multi-stage Dockerfile + docker-compose
+- **CI/CD** — GitHub Actions: lint → build → test → Docker
+- **Sentry Integration** — Error tracking via `SENTRY_DSN` env var
+- **Rate Limiter Persistence** — SQLite-backed, survives restart
 - **CLI Tool** — `npm install -g bawwab` → `bawwab start`
 
 ---
@@ -75,7 +81,24 @@ cd api && npm start
 
 API akan jalan di `http://localhost:3000`
 
-### 3. Jalankan Dashboard
+### 3. Docker (Production)
+
+```bash
+git clone https://github.com/kentanghub/bawwab.git
+cd bawwab
+
+# Edit .env file
+cp api/.env.example api/.env
+# Edit api/.env — isi minimal JWT_SECRET dan ADMIN_API_KEY
+
+# Build dan jalankan
+docker compose up -d
+
+# Cek status
+curl http://localhost:3001/health
+```
+
+### 4. Jalankan Dashboard
 
 ```bash
 cd dashboard
@@ -100,6 +123,12 @@ JWT_SECRET=your-jwt-secret-min-32-chars
 
 # Logging
 LOG_LEVEL=info
+
+# Sentry Error Tracking (opsional)
+SENTRY_DSN=https://xxx@sentry.io/xxx
+
+# Dashboard Password Protection (opsional)
+DASHBOARD_PASSWORD=your-secure-password
 
 # Provider API Keys (isi minimal 1)
 OPENAI_API_KEY=sk-...
@@ -407,6 +436,21 @@ cd cli && npm link
 ```
 
 ---
+
+## 🧪 Testing
+
+```bash
+cd api
+npm test        # Run 63 unit tests
+npm run build   # Build TypeScript
+```
+
+Tests cover:
+- RTK Token Saver (compression filters, autodetect)
+- Intelligent Router (direct match, alias, combo, scoring)
+- Smart Fallback (tier classification, health filtering)
+- Rate Limiter (sliding window, quota, persistence)
+- Model Aliases (prefix parsing, name inference, DB aliases)
 
 ## 📄 License
 
