@@ -1,6 +1,9 @@
 import Database from 'better-sqlite3';
 import { logger } from './logger.js';
 import type { RequestLog } from '../types/index.js';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { cwd } from 'node:process';
 
 const DB_PATH = process.env.DB_PATH || './data/bawwab.db';
 
@@ -9,7 +12,16 @@ let db: Database.Database | null = null;
 export function initDatabase(): Database.Database {
   if (db) return db;
 
-  db = new Database(DB_PATH);
+  // Ensure data directory exists (critical for fresh clones)
+  const dbPath = resolve(cwd(), DB_PATH);
+  const dbDir = dirname(dbPath);
+  try {
+    mkdirSync(dbDir, { recursive: true });
+  } catch (err) {
+    logger.warn(`[Database] Could not create directory ${dbDir}: ${(err as Error).message}`);
+  }
+
+  db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
 
   // Create tables
