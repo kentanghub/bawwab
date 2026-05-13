@@ -19,12 +19,18 @@ import { virtualKeyManager } from '../services/virtual-keys.js';
 import { requestDeduplicator } from '../services/request-deduplicator.js';
 import { contentSafety } from '../services/content-safety.js';
 import { webhookManager } from '../services/webhooks.js';
-import { abTesting } from '../services/ab-testing.js';
+import { abTestingManager } from '../services/ab-testing.js';
+import { compressMessages as rtkCompress } from '../services/rtk-token-saver.js';
+import { modelAliasManager } from '../services/model-aliases.js';
+import { pricingTracker } from '../services/pricing-tracker.js';
+import { requestLogger } from '../services/request-logger.js';
+import { multiAccountManager } from '../services/multi-account.js';
 import { prometheusMetrics } from '../services/prometheus.js';
 import { pluginManager } from '../plugins/manager.js';
 import { chatRequestSchema } from '../services/validator.js';
 import { logger } from '../services/logger.js';
 import { createHash } from 'node:crypto';
+import { safeCompare } from '../services/database.js';
 
 export async function chatRoutes(app: FastifyInstance) {
   app.post('/chat/completions', {
@@ -71,7 +77,9 @@ export async function chatRoutes(app: FastifyInstance) {
     const body = parseResult.data as ChatRequest;
     const isStream = body.stream || false;
     const cavemanMode = request.headers['x-caveman-mode'] === 'true';
-    const debugMode = request.headers['x-debug-mode'] === 'true' || debugLogger.isEnabled();
+    const authKey = request.headers['x-api-key'] as string;
+    const debugAuth = request.headers['authorization']?.replace('Bearer ', '') || request.headers['x-api-key'] as string || '';
+  const debugMode = request.headers['x-debug-mode'] === 'true' && !!process.env.ADMIN_API_KEY && debugAuth === process.env.ADMIN_API_KEY && safeCompare(authKey || '', process.env.ADMIN_API_KEY || '');
     if (debugMode) debugLogger.setEnabled(true);
 
     // Virtual Key validation
@@ -92,6 +100,7 @@ export async function chatRoutes(app: FastifyInstance) {
 
     const debugEntryId = crypto.randomUUID();
     let decision: any = null;
+    let activeAbTest: { testId: string; variant: 'A' | 'B' } | null = null;
     
     try {
       let optimizedRequest = tokenOptimizer.optimize(body);
@@ -113,7 +122,42 @@ export async function chatRoutes(app: FastifyInstance) {
         ...optimizedRequest,
         messages: toolCompressor.compressMessages(optimizedRequest.messages)
       };
-      
+
+      // Apply RTK token saver compression (tool_result auto-compression)
+      const rtkResult = rtkCompress(optimizedRequest.messages);
+      optimizedRequest.messages = rtkResult.messages;
+      if (rtkResult.stats.savedBytes > 0) {
+        logger.info({
+          savedBytes: rtkResult.stats.savedBytes,
+          savedPercent: rtkResult.stats.savedPercent,
+          compressedCount: rtkResult.stats.compressedCount,
+        }, '[RTK] Token savings applied');
+      }
+
+      // Resolve model alias (e.g., "cc/opus" → { provider: "claude", model: "opus" })
+      const resolved = modelAliasManager.resolveAlias(body.model);
+      if (resolved.provider !== 'openai' || body.model.includes('/')) {
+        // Only override if alias resolution found something meaningful
+        const resolvedProvider = pluginManager.getAllProviders().find(
+          p => p.id === resolved.provider || p.alias === resolved.provider
+        );
+        if (resolvedProvider && resolved.model) {
+          optimizedRequest.model = resolved.model;
+        }
+      }
+
+      // Check for active A/B test matching this model
+      const abTests = abTestingManager.listTests();
+      const matchingTest = abTests.find(
+        t => t.isActive && (t.modelA === body.model || t.modelB === body.model || t.modelA === optimizedRequest.model || t.modelB === optimizedRequest.model)
+      );
+      if (matchingTest) {
+        const variant = abTestingManager.getVariant(matchingTest.id);
+        activeAbTest = { testId: matchingTest.id, variant };
+        optimizedRequest.model = variant === 'A' ? matchingTest.modelA : matchingTest.modelB;
+        logger.info({ testId: matchingTest.id, variant, model: optimizedRequest.model }, '[ABTest] Routing to variant');
+      }
+
       decision = await intelligentRouter.route(optimizedRequest);
       const provider = pluginManager.getProvider(decision.providerId);
       
@@ -157,12 +201,30 @@ export async function chatRoutes(app: FastifyInstance) {
         }
       }
 
-      const response = await requestDeduplicator.dedupe(
-        provider.id,
-        decision.modelId,
-        request,
-        () => forwardToProvider(provider, decision.modelId, optimizedRequest, isStream, cavemanMode)
-      );
+      let response: any;
+      try {
+        response = await requestDeduplicator.dedupe(
+          provider.id,
+          decision.modelId,
+          request,
+          () => forwardToProvider(provider, decision.modelId, optimizedRequest, isStream, cavemanMode)
+        );
+      } catch (primaryError) {
+        // Primary provider failed — use smart fallback chain
+        logger.warn(
+          { provider: provider.id, error: (primaryError as Error).message },
+          '[Fallback] Primary provider failed, trying fallback chain...'
+        );
+
+        // Fire webhook for provider failure
+        webhookManager.fire({
+          type: 'provider.down',
+          timestamp: new Date(),
+          payload: { provider: provider.id, error: (primaryError as Error).message },
+        }).catch(() => {});
+
+        response = await forwardWithFallback(provider, decision, optimizedRequest, isStream, cavemanMode);
+      }
 
       const latency = Date.now() - startTime;
 
@@ -208,13 +270,45 @@ export async function chatRoutes(app: FastifyInstance) {
         });
         // Record quota usage
         quotaTracker.recordUsage(decision.providerId, decision.providerId, tokensIn, 0, 0);
+
+        // Log request
+        requestLogger.logRequest({
+          provider: decision.providerId,
+          model: decision.modelId,
+          status: 'ok',
+          input_tokens: tokensIn,
+          output_tokens: 0,
+          latency_ms: Date.now() - startTime,
+          endpoint: '/v1/chat/completions',
+        });
+
+        // Fire success webhook
+        webhookManager.fire({
+          type: 'request.completed',
+          timestamp: new Date(),
+          payload: {
+            provider: decision.providerId,
+            model: decision.modelId,
+            tokensIn,
+            tokensOut: 0,
+            latencyMs: Date.now() - startTime,
+            stream: true,
+          },
+        }).catch(() => {});
+
         return reply;
       }
 
       if (!isStream && typeof response === 'object') {
         tokensOut = response.usage?.completion_tokens || 0;
         tokensIn = response.usage?.prompt_tokens || tokensIn;
-        actualCost = calculateActualCost(decision.providerId, decision.modelId, tokensIn, tokensOut);
+        const costBreakdown = pricingTracker.calculateCost(decision.providerId, decision.modelId, {
+          input_tokens: tokensIn,
+          output_tokens: tokensOut,
+          cached_tokens: response.usage?.cached_tokens || 0,
+          reasoning_tokens: response.usage?.reasoning_tokens || 0,
+        });
+        actualCost = costBreakdown.totalCost;
       }
 
       metricsCollector.record({
@@ -280,6 +374,44 @@ export async function chatRoutes(app: FastifyInstance) {
         cacheHit: false,
       });
 
+      // Log request with request logger
+      requestLogger.logRequest({
+        provider: decision.providerId,
+        model: decision.modelId,
+        status: 'ok',
+        input_tokens: tokensIn,
+        output_tokens: tokensOut,
+        cached_tokens: !isStream && typeof response === 'object' ? (response.usage?.cached_tokens || 0) : 0,
+        reasoning_tokens: !isStream && typeof response === 'object' ? (response.usage?.reasoning_tokens || 0) : 0,
+        cost: actualCost,
+        latency_ms: latency,
+        endpoint: '/v1/chat/completions',
+      });
+
+      // Fire success webhook
+      webhookManager.fire({
+        type: 'request.completed',
+        timestamp: new Date(),
+        payload: {
+          provider: decision.providerId,
+          model: decision.modelId,
+          tokensIn,
+          tokensOut,
+          cost: actualCost,
+          latencyMs: latency,
+        },
+      }).catch(() => {});
+
+      // Record A/B test result if applicable
+      if (activeAbTest) {
+        abTestingManager.recordResult(activeAbTest.testId, activeAbTest.variant, {
+          latencyMs: latency,
+          tokensIn,
+          tokensOut,
+          cost: actualCost,
+        });
+      }
+
       return reply.send(response);
 
     } catch (error) {
@@ -329,6 +461,30 @@ export async function chatRoutes(app: FastifyInstance) {
         cacheHit: false,
       });
 
+      // Log failed request
+      requestLogger.logRequest({
+        provider: decision?.providerId || 'unknown',
+        model: decision?.modelId || body.model,
+        status: 'error',
+        input_tokens: 0,
+        output_tokens: 0,
+        cost: 0,
+        latency_ms: latency,
+        endpoint: '/v1/chat/completions',
+        meta: { error: error instanceof Error ? error.message : 'Unknown error', statusCode },
+      });
+
+      // Record A/B test failure result if applicable
+      if (activeAbTest) {
+        abTestingManager.recordResult(activeAbTest.testId, activeAbTest.variant, {
+          latencyMs: latency,
+          tokensIn: 0,
+          tokensOut: 0,
+          cost: 0,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+
       return reply.status(statusCode).send({
         error: statusCode === 502 ? 'Bad Gateway' : statusCode === 503 ? 'Service Unavailable' : 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
@@ -337,8 +493,8 @@ export async function chatRoutes(app: FastifyInstance) {
   });
 
   app.get('/debug/logs', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth || '', process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
     const limit = parseInt((request.query as any)['limit'] as string) || 50;
@@ -458,8 +614,21 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
     throw new Error(`Provider "${provider.name}" rate limit nearly exhausted. Queued.`);
   }
 
-  // Use keyManager for multi-account round-robin
-  let apiKey = keyManager.getNextKey(provider.id);
+  // Track multi-account connection for success/failure marking
+  let connectionId: string | null = null;
+
+  // Try multi-account manager first for API key selection
+  let apiKey: string | undefined;
+  const multiConn = await multiAccountManager.getConnection(provider.id, modelId);
+  if (multiConn) {
+    connectionId = multiConn.id;
+    apiKey = multiConn.data.api_key || multiConn.data.apiKey || multiConn.data.token || undefined;
+  }
+
+  // Fallback to keyManager for round-robin key rotation
+  if (!apiKey) {
+    apiKey = keyManager.getNextKey(provider.id);
+  }
   
   // Fallback to OAuth token if available (for OAuth providers like claude, gemini, github)
   if (!apiKey && oauthManager.hasToken(provider.id)) {
@@ -559,6 +728,11 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
       providerRateLimiter.decrement(provider.id);
       circuitBreaker.recordSuccess(provider.id);
 
+      // Mark multi-account connection as successful
+      if (connectionId) {
+        multiAccountManager.markSuccess(connectionId).catch(() => {});
+      }
+
       if (stream) {
         return response.body;
       }
@@ -570,6 +744,14 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       circuitBreaker.recordFailure(provider.id);
+
+      // Mark multi-account connection as unavailable on error
+      if (connectionId) {
+        const statusMatch = lastError.message.match(/\((\d{3})\)/);
+        const status = statusMatch ? parseInt(statusMatch[1]) : 500;
+        multiAccountManager.markUnavailable(connectionId, status, lastError.message, provider.id, modelId).catch(() => {});
+      }
+
       if (attempt === 0) {
         logger.warn({ provider: provider.id, attempt: 1 }, '[Retry] Provider attempt 1 failed, retrying...');
         await new Promise(r => setTimeout(r, 500)); // 500ms backoff
@@ -578,6 +760,14 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
   }
   
   clearTimeout(timeout);
+
+  // All retries exhausted — fire webhook for circuit breaker / provider down
+  webhookManager.fire({
+    type: 'provider.down',
+    timestamp: new Date(),
+    payload: { provider: provider.id, error: lastError?.message || 'Unknown' },
+  }).catch(() => {});
+
   throw lastError;
 }
 

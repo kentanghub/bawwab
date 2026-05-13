@@ -1,0 +1,12 @@
+{
+  "name": "bawwab",
+  "version": "0.1.0",
+  "description": "Bawwab — Unified AI Gateway CLI",
+  "type": "module",
+  "bin": {
+    "bawwab": "./bin/bawwab.js"
+  },
+  "keywords": ["ai", "gateway", "llm", "openai", "router"],
+  "license": "MIT",
+  "engines": { "node": ">=18" }
+}

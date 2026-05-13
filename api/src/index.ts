@@ -18,7 +18,7 @@ import { intelligentRouter } from './services/intelligent-router.js';
 import { cacheManager } from './services/cache-manager.js';
 import { metricsCollector } from './services/metrics.js';
 import { prometheusMetrics } from './services/prometheus.js';
-import { initDatabase, closeDb } from './services/database.js';
+import { initDatabase, closeDb, hashKey, safeCompare } from './services/database.js';
 import { authRoutes } from './routes/auth.js';
 import { chatRoutes } from './routes/chat.js';
 import { capabilityRoutes } from './routes/capabilities.js';
@@ -31,6 +31,15 @@ import { advancedRoutes } from './routes/advanced.js';
 import { batchRoutes } from './routes/batch.js';
 import { providerRoutes, adminRoutes, wsRoutes } from './routes/providers.js';
 import { checkRateLimit, checkQuota, incrementUsage } from './services/rate-limiter.js';
+import { rtkRoutes } from './routes/rtk.js';
+import { webhookRoutes } from './routes/webhooks.js';
+import { abTestingRoutes } from './routes/ab-testing.js';
+import { modelAliasRoutes } from './routes/model-aliases.js';
+import { pricingRoutes } from './routes/pricing.js';
+import { cloudSyncRoutes } from './routes/cloud-sync.js';
+import { requestLogger } from './services/request-logger.js';
+import { pricingTracker } from './services/pricing-tracker.js';
+import { modelAliasManager } from './services/model-aliases.js';
 
 dotenv.config();
 
@@ -64,7 +73,7 @@ app.addHook('preHandler', async (request, reply) => {
   if (!apiKey) return;
 
   // Skip rate limit check for admin endpoints with admin key
-  if (request.url.startsWith('/v1/admin') && apiKey === process.env.ADMIN_API_KEY) {
+  if (request.url.startsWith('/v1/admin') && safeCompare(apiKey, process.env.ADMIN_API_KEY || '')) {
     return;
   }
 
@@ -72,7 +81,7 @@ app.addHook('preHandler', async (request, reply) => {
   const db = getDb();
 
   // Get key row (including default limits if key not in DB)
-  const keyRow = db.prepare('SELECT rate_limit, monthly_quota FROM api_keys WHERE key_hash = ?').get(apiKey) as any;
+  const keyRow = db.prepare('SELECT rate_limit_rpm, monthly_quota_requests FROM api_keys WHERE key_hash = ?').get(hashKey(apiKey)) as any;
   const rateLimitVal = keyRow?.rate_limit || 60;
 
   const rl = checkRateLimit(apiKey, rateLimitVal);
@@ -176,7 +185,18 @@ app.addHook('onReady', async () => {
   
   metricsCollector.initialize();
   app.log.info('📊 Metrics collector initialized');
-  
+
+  // Pricing tracker uses DB + hardcoded models — ready on import
+  pricingTracker.listCanonicalPricing(); // ensure DB table exists
+  app.log.info('💰 Pricing tracker ready');
+
+  // Model alias manager reads from DB — ready on import
+  modelAliasManager.listAliases(); // ensure DB table exists
+  app.log.info('🔗 Model alias manager ready');
+
+  // Request logger auto-initializes (creates log dir, rotation)
+  app.log.info('📝 Request logger ready');
+
   app.log.info('✅ Bawwab Gateway ready');
 });
 
@@ -194,6 +214,12 @@ await app.register(batchRoutes, { prefix: '/v1' });
 await app.register(providerRoutes, { prefix: '/v1/providers' });
 await app.register(adminRoutes, { prefix: '/v1/admin' });
 await app.register(wsRoutes, { prefix: '/ws' });
+await app.register(rtkRoutes, { prefix: '/v1/rtk' });
+await app.register(webhookRoutes, { prefix: '/v1/webhooks' });
+await app.register(abTestingRoutes, { prefix: '/v1/ab-testing' });
+await app.register(modelAliasRoutes, { prefix: '/v1/model-aliases' });
+await app.register(pricingRoutes, { prefix: '/v1/pricing' });
+await app.register(cloudSyncRoutes, { prefix: '/v1/cloud-sync' });
 
 // Serve dashboard static files (single-port self-hosted mode)
 const __dirname = dirname(fileURLToPath(import.meta.url));

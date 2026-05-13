@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import crypto from 'node:crypto';
-import { getDb } from '../services/database.js';
+import { getDb, safeCompare } from '../services/database.js';
 
 // Simple hash for API keys (not bcrypt — keys are random UUIDs, not passwords)
 function hashKey(key: string): string {
@@ -31,7 +31,7 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: 'API key too long' });
     }
     
-    if (apiKey !== process.env.ADMIN_API_KEY) {
+    if (!safeCompare(apiKey, process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Invalid API key' });
     }
     

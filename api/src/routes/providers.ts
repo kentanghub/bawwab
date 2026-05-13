@@ -2,14 +2,14 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { pluginManager } from '../plugins/manager.js';
 import { healthMonitor } from '../services/health-monitor.js';
 import { metricsCollector } from '../services/metrics.js';
-import { getRecentLogs } from '../services/database.js';
+import { getRecentLogs, safeCompare } from '../services/database.js';
 
 // Auth middleware - verifies JWT token OR admin API key
 async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
   const apiKey = request.headers['x-api-key']?.toString();
 
   // Allow admin API key as alternative to JWT (for dashboard convenience)
-  if (apiKey && apiKey === process.env.ADMIN_API_KEY) {
+  if (apiKey && safeCompare(apiKey, process.env.ADMIN_API_KEY || '')) {
     request.user = { role: 'admin' };
     return;
   }

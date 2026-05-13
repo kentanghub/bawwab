@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { virtualKeyManager } from '../services/virtual-keys.js';
+import { safeCompare } from '../services/database.js';
 
 export async function virtualKeyRoutes(app: FastifyInstance) {
   // List keys (admin: all, user: own)
   app.get('/virtual-keys', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    const isAdmin = auth === process.env.ADMIN_API_KEY;
+    const auth = request.headers['x-api-key'] as string;
+    const isAdmin = safeCompare(auth || '', process.env.ADMIN_API_KEY || '');
     const owner = isAdmin ? undefined : (request.query as any).owner;
     const keys = virtualKeyManager.listKeys(owner).map(k => ({
       id: k.id,
@@ -23,8 +24,8 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
 
   // Create key
   app.post('/virtual-keys', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    const isAdmin = auth === process.env.ADMIN_API_KEY;
+    const auth = request.headers['x-api-key'] as string;
+    const isAdmin = safeCompare(auth || '', process.env.ADMIN_API_KEY || '');
 
     const body = request.body as any;
     if (!body.name || !body.owner) {
@@ -66,8 +67,8 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
 
   // Revoke key
   app.post('/virtual-keys/:id/revoke', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth || '', process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
     const { id } = request.params as { id: string };
@@ -78,8 +79,8 @@ export async function virtualKeyRoutes(app: FastifyInstance) {
 
   // Delete key
   app.delete('/virtual-keys/:id', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth || '', process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
     const { id } = request.params as { id: string };

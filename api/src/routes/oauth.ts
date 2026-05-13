@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { oauthManager } from '../services/oauth-manager.js';
 import { logger } from '../services/logger.js';
+import { safeCompare } from '../services/database.js';
 
 // Track active polling intervals per provider+deviceCode
 const activePolls = new Map<string, NodeJS.Timeout>();
@@ -90,8 +91,8 @@ export async function oauthRoutes(app: FastifyInstance) {
 
   // Get stored cookies (admin only, masked)
   app.get('/oauth/:provider/cookies', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth, process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
@@ -233,8 +234,8 @@ export async function oauthRoutes(app: FastifyInstance) {
 
   // Get OAuth status
   app.get('/oauth/status', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth, process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
@@ -243,8 +244,8 @@ export async function oauthRoutes(app: FastifyInstance) {
 
   // Disconnect/revoke OAuth
   app.post('/oauth/:provider/disconnect', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth, process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 

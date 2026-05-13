@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { quotaTracker } from '../services/quota-tracker.js';
 import { pluginManager } from '../plugins/manager.js';
+import { safeCompare } from '../services/database.js';
 
 export async function quotaRoutes(app: FastifyInstance) {
   // Get all quota usage
@@ -119,8 +120,8 @@ export async function quotaRoutes(app: FastifyInstance) {
 
   // Set quota for provider (admin only)
   app.post('/quota/:providerId', async (request, reply) => {
-    const auth = request.headers['x-api-key'];
-    if (auth !== process.env.ADMIN_API_KEY) {
+    const auth = request.headers['x-api-key'] as string;
+    if (!safeCompare(auth, process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
