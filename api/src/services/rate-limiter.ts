@@ -24,14 +24,83 @@ interface QuotaResult {
 const windowMs = 60 * 1000; // 1 minute window
 const rateLimitMap = new Map<string, RateLimitState>();
 
+// ─── Persistence ────────────────────────────────────────────────────────────
+
+/** Load persisted rate limit state from SQLite on startup */
+function loadPersistedState(): void {
+  try {
+    const db = getDb();
+    const rows = db.prepare('SELECT key, count, window_start FROM rate_limit_state').all() as Array<{
+      key: string;
+      count: number;
+      window_start: string;
+    }>;
+    const now = Date.now();
+    for (const row of rows) {
+      const resetAt = new Date(row.window_start).getTime() + windowMs;
+      if (resetAt > now) {
+        // Window still active
+        rateLimitMap.set(row.key, { count: row.count, resetAt });
+      }
+    }
+  } catch {
+    // Table may not exist yet — ignore
+  }
+}
+
+/** Persist a single rate limit state to SQLite */
+function persistState(key: string, state: RateLimitState): void {
+  try {
+    const db = getDb();
+    const windowStart = new Date(state.resetAt - windowMs).toISOString();
+    db.prepare(`
+      INSERT INTO rate_limit_state (key, window_start, count)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start, count = excluded.count
+    `).run(key, windowStart, state.count);
+  } catch {
+    // Ignore persistence errors — in-memory still works
+  }
+}
+
+/** Remove expired entries from SQLite */
+function cleanupExpired(): void {
+  try {
+    const db = getDb();
+    const cutoff = new Date(Date.now() - windowMs * 2).toISOString();
+    db.prepare('DELETE FROM rate_limit_state WHERE window_start < ?').run(cutoff);
+  } catch {
+    // Ignore
+  }
+}
+
+// Load on module import
+let initialized = false;
+
+function ensureInitialized(): void {
+  if (!initialized) {
+    loadPersistedState();
+    initialized = true;
+  }
+}
+
+// Cleanup every 5 minutes
+setInterval(cleanupExpired, 5 * 60 * 1000).unref();
+
+// ─── Public API ─────────────────────────────────────────────────────────────
+
 export function checkRateLimit(keyHash: string, limit: number = 60): RateLimitResult {
+  ensureInitialized();
+
   const now = Date.now();
   const state = rateLimitMap.get(keyHash);
 
   if (!state || state.resetAt <= now) {
     // New window
     const resetAt = Math.ceil(now / windowMs) * windowMs;
-    rateLimitMap.set(keyHash, { count: 1, resetAt });
+    const newState = { count: 1, resetAt };
+    rateLimitMap.set(keyHash, newState);
+    persistState(keyHash, newState);
     return { allowed: true, remaining: limit - 1, resetAt, limit };
   }
 
@@ -40,6 +109,7 @@ export function checkRateLimit(keyHash: string, limit: number = 60): RateLimitRe
 
   if (allowed) {
     state.count++;
+    persistState(keyHash, state);
   }
 
   return {

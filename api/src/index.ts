@@ -11,6 +11,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import fastifyStatic from '@fastify/static';
+import cookie from '@fastify/cookie';
 import { pluginManager } from './plugins/manager.js';
 import { healthMonitor } from './services/health-monitor.js';
 import { tokenOptimizer } from './services/token-optimizer.js';
@@ -38,10 +39,15 @@ import { modelAliasRoutes } from './routes/model-aliases.js';
 import { pricingRoutes } from './routes/pricing.js';
 import { cloudSyncRoutes } from './routes/cloud-sync.js';
 import { requestLogger } from './services/request-logger.js';
+import { dashboardAuthRoutes } from './routes/dashboard-auth.js';
+import { initErrorTracker, captureError } from './services/error-tracker.js';
 import { pricingTracker } from './services/pricing-tracker.js';
 import { modelAliasManager } from './services/model-aliases.js';
 
 dotenv.config();
+
+// Initialize error tracking (no-op if SENTRY_DSN not set)
+initErrorTracker();
 
 // Security: require JWT_SECRET in production
 if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
@@ -136,6 +142,7 @@ await app.register(rateLimit, {
 });
 await app.register(websocket);
 await app.register(compress, { global: true });
+await app.register(cookie, { secret: JWT_SECRET });
 
 // Swagger docs
 await app.register(swagger, {
@@ -221,6 +228,9 @@ await app.register(modelAliasRoutes, { prefix: '/v1/model-aliases' });
 await app.register(pricingRoutes, { prefix: '/v1/pricing' });
 await app.register(cloudSyncRoutes, { prefix: '/v1/sync' });
 
+// Dashboard auth (must be before static serving)
+await app.register(dashboardAuthRoutes);
+
 // Serve dashboard static files (single-port self-hosted mode)
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dashboardDistPath = join(__dirname, '../../dashboard/dist');
@@ -255,6 +265,7 @@ app.get('/health', async () => ({
 app.setErrorHandler((error, request, reply) => {
   const err = error as any;
   app.log.error(err);
+  captureError(err, { method: request.method, url: request.url });
   reply.status(err.statusCode || 500).send({
     error: err.name || 'InternalError',
     message: err.message || 'An unexpected error occurred',

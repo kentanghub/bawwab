@@ -2,17 +2,16 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   pull_request:
-    branches: [main, master]
+    branches: [main]
 
 jobs:
-  build:
+  lint-build-test:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20]
 
     steps:
       - uses: actions/checkout@v4
@@ -21,12 +20,46 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: npm
+          cache-dependency-path: api/package-lock.json
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install API dependencies
+        working-directory: api
+        run: npm ci
 
-      - name: Build all
+      - name: Lint
+        working-directory: api
+        run: npm run lint --if-present
+        continue-on-error: true
+
+      - name: Build
+        working-directory: api
         run: npm run build
 
-      - name: Run tests
-        run: echo "No tests configured yet — skipping."
+      - name: Test
+        working-directory: api
+        run: npm test
+        env:
+          CI: true
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: lint-build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t bawwab:latest .
+
+      - name: Verify Docker image
+        run: |
+          docker run --rm -d --name bawwab-test \
+            -p 3001:3001 \
+            -e JWT_SECRET=test-secret \
+            -e ADMIN_API_KEY=test-admin-key \
+            bawwab:latest
+          sleep 5
+          curl -f http://localhost:3001/health || (docker logs bawwab-test && exit 1)
+          docker stop bawwab-test

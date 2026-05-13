@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   bawwab:
     build:
@@ -7,27 +5,33 @@ services:
       dockerfile: Dockerfile
     container_name: bawwab
     ports:
-      - "3001:3001"
+      - "${PORT:-3001}:3001"
     environment:
       - NODE_ENV=production
       - PORT=3001
       - HOST=0.0.0.0
       - JWT_SECRET=${JWT_SECRET}
       - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - BAWWAB_DATA_DIR=/data/bawwab
+      # Optional: Sentry error tracking
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      # Optional: Dashboard password protection
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-}
+      # Optional: API keys for providers
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
-      - JINA_API_KEY=${JINA_API_KEY:-}
-      - DB_PATH=/app/api/data/bawwab.db
+      - CANOPYWAVE_API_KEY=${CANOPYWAVE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - XAI_API_KEY=${XAI_API_KEY:-}
     volumes:
-      - bawwab-data:/app/api/data
+      - bawwab-data:/data/bawwab
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
       start_period: 10s
 
