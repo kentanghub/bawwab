@@ -7,13 +7,13 @@ import { abTestingManager } from '../services/ab-testing.js';
 
 export async function abTestingRoutes(app: FastifyInstance) {
   // List all tests
-  app.get('/v1/ab-tests', async () => {
+  app.get('/', async () => {
     const tests = abTestingManager.listTests();
     return { tests };
   });
 
   // Create a new test
-  app.post('/v1/ab-tests', async (request, reply) => {
+  app.post('/', async (request, reply) => {
     const body = request.body as {
       name?: string;
       modelA?: string;
@@ -42,7 +42,7 @@ export async function abTestingRoutes(app: FastifyInstance) {
   });
 
   // Get test stats with winner
-  app.get('/v1/ab-tests/:id/stats', async (request, reply) => {
+  app.get('/:id/stats', async (request, reply) => {
     const { id } = request.params as { id: string };
     const stats = abTestingManager.getStats(id);
     if (!stats) return reply.status(404).send({ error: 'Test not found' });
@@ -50,7 +50,7 @@ export async function abTestingRoutes(app: FastifyInstance) {
   });
 
   // Delete a test
-  app.delete('/v1/ab-tests/:id', async (request, reply) => {
+  app.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const ok = abTestingManager.deleteTest(id);
     if (!ok) return reply.status(404).send({ error: 'Test not found' });

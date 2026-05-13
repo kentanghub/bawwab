@@ -30,7 +30,7 @@ class ModelDiscovery {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const data = await response.json();
+      const data = await response.json() as any;
       const models = Array.isArray(data.data) ? data.data : Array.isArray(data.models) ? data.models : [];
 
       return models.map((m: any) => ({

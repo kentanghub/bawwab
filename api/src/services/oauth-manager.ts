@@ -147,7 +147,7 @@ export class OAuthManager {
       throw new Error(`Device code request failed: ${error}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
 
     const result: DeviceCodeResponse = {
       deviceCode: data.device_code || data.deviceCode,
@@ -183,7 +183,7 @@ export class OAuthManager {
       body: params.toString()
     });
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
 
     if (data.error === 'authorization_pending' || data.error === 'slow_down') {
       return null;
@@ -376,7 +376,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
   }
 
@@ -401,7 +401,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
   }
 
@@ -426,7 +426,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
   }
 
@@ -466,7 +466,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
   }
 
@@ -493,7 +493,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     // Copilot returns token + expires_at (epoch seconds)
     const expiresIn = data.expires_at ? Math.max(0, data.expires_at - Math.floor(Date.now() / 1000)) : 3600;
     return {
@@ -524,7 +524,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
   }
 
@@ -549,7 +549,7 @@ export class OAuthManager {
       return null;
     }
 
-    const data = await response.json();
+    const data = await response.json() as any as any;
     return { accessToken: data.access_token, refreshToken: data.refresh_token, expiresIn: data.expires_in };
   }
 

@@ -17,13 +17,13 @@ const VALID_EVENTS: WebhookEventType[] = [
 
 export async function webhookRoutes(app: FastifyInstance) {
   // List all webhook subscriptions
-  app.get('/v1/webhooks', async () => {
+  app.get('/', async () => {
     const subs = webhookManager.list();
     return { webhooks: subs };
   });
 
   // Subscribe to webhook events
-  app.post('/v1/webhooks', async (request, reply) => {
+  app.post('/', async (request, reply) => {
     const auth = request.headers['authorization']?.replace('Bearer ', '') || request.headers['x-api-key'] as string || '';
     if (!safeCompare(auth, process.env.ADMIN_API_KEY || '')) {
       return reply.status(401).send({ error: 'Unauthorized' });
@@ -60,7 +60,7 @@ export async function webhookRoutes(app: FastifyInstance) {
   });
 
   // Unsubscribe
-  app.delete('/v1/webhooks/:id', async (request, reply) => {
+  app.delete('/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const ok = webhookManager.unsubscribe(id);
     if (!ok) return reply.status(404).send({ error: 'Webhook not found' });

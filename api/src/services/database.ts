@@ -293,8 +293,13 @@ db.exec(`
     name TEXT,
     is_active INTEGER NOT NULL DEFAULT 1,
     rate_limit_rpm INTEGER DEFAULT 100,
+    rate_limit INTEGER DEFAULT 60,
     monthly_quota_tokens INTEGER,
     monthly_quota_requests INTEGER,
+    monthly_quota INTEGER DEFAULT 10000,
+    monthly_usage INTEGER DEFAULT 0,
+    usage_count INTEGER DEFAULT 0,
+    quota_reset_at TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     last_used_at TEXT
   );

@@ -3,7 +3,7 @@ import { pricingTracker } from '../services/pricing-tracker.js';
 
 export async function pricingRoutes(app: FastifyInstance) {
   // List all pricing (canonical + patterns + overrides)
-  app.get('/pricing', async () => {
+  app.get('/', async () => {
     return {
       canonical: pricingTracker.listCanonicalPricing(),
       patterns: pricingTracker.listPatternPricing(),
@@ -12,7 +12,7 @@ export async function pricingRoutes(app: FastifyInstance) {
   });
 
   // Set a pricing override
-  app.post('/pricing', async (request, reply) => {
+  app.post('/', async (request, reply) => {
     const { provider, model, input, output, cached, reasoning } = request.body as {
       provider?: string;
       model?: string;
@@ -47,7 +47,7 @@ export async function pricingRoutes(app: FastifyInstance) {
   });
 
   // Calculate cost for given usage
-  app.post('/pricing/calculate', async (request, reply) => {
+  app.post('/calculate', async (request, reply) => {
     const { provider, model, usage } = request.body as {
       provider?: string;
       model?: string;

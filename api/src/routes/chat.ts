@@ -136,8 +136,8 @@ export async function chatRoutes(app: FastifyInstance) {
 
       // Resolve model alias (e.g., "cc/opus" → { provider: "claude", model: "opus" })
       const resolved = modelAliasManager.resolveAlias(body.model);
-      if (resolved.provider !== 'openai' || body.model.includes('/')) {
-        // Only override if alias resolution found something meaningful
+      if (resolved.provider && resolved.provider !== 'openai') {
+        // Alias resolution found a known provider prefix — use it
         const resolvedProvider = pluginManager.getAllProviders().find(
           p => p.id === resolved.provider || p.alias === resolved.provider
         );
@@ -145,6 +145,7 @@ export async function chatRoutes(app: FastifyInstance) {
           optimizedRequest.model = resolved.model;
         }
       }
+      // else: keep original model ID for router to match directly (e.g. 'canopywave/moonshotai/kimi-k2.6')
 
       // Check for active A/B test matching this model
       const abTests = abTestingManager.listTests();
@@ -737,7 +738,7 @@ async function forwardToProvider(provider: any, modelId: string, request: ChatRe
         return response.body;
       }
 
-      const nativeResponse = await response.json();
+      const nativeResponse = await response.json() as any;
 
       // Translate response back to OpenAI format
       return formatTranslator.translateResponse(nativeResponse, targetFormat);

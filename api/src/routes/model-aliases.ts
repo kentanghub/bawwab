@@ -3,12 +3,12 @@ import { modelAliasManager } from '../services/model-aliases.js';
 
 export async function modelAliasRoutes(app: FastifyInstance) {
   // List all user-configurable aliases
-  app.get('/aliases', async () => {
+  app.get('/', async () => {
     return { aliases: modelAliasManager.listAliases() };
   });
 
   // Set an alias
-  app.post('/aliases', async (request, reply) => {
+  app.post('/', async (request, reply) => {
     const { alias, target } = request.body as { alias?: string; target?: string };
     if (!alias || !target) {
       return reply.status(400).send({ error: 'Both alias and target are required' });
@@ -28,7 +28,7 @@ export async function modelAliasRoutes(app: FastifyInstance) {
   });
 
   // Resolve a model string
-  app.post('/aliases/resolve', async (request, reply) => {
+  app.post('/resolve', async (request, reply) => {
     const { model } = request.body as { model?: string };
     if (!model) {
       return reply.status(400).send({ error: 'model is required' });
@@ -38,7 +38,7 @@ export async function modelAliasRoutes(app: FastifyInstance) {
   });
 
   // Also expose the hardcoded provider prefix aliases
-  app.get('/aliases/providers', async () => {
+  app.get('/providers', async () => {
     return { providers: modelAliasManager.getProviderPrefixAliases() };
   });
 }

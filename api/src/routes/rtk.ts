@@ -22,7 +22,7 @@ export async function rtkRoutes(app: FastifyInstance) {
    * GET /v1/rtk/stats
    * Returns current and lifetime RTK compression statistics.
    */
-  app.get('/v1/rtk/stats', async (_request: FastifyRequest, reply: FastifyReply) => {
+  app.get('/stats', async (_request: FastifyRequest, reply: FastifyReply) => {
     const lastStats = getRtkStats();
     const lifetime = getRtkLifetimeStats();
 
@@ -41,7 +41,7 @@ export async function rtkRoutes(app: FastifyInstance) {
    * Enable or disable RTK compression.
    * Body: { enabled: boolean }
    */
-  app.post('/v1/rtk/toggle', {
+  app.post('/toggle', {
     schema: {
       body: {
         type: 'object',
@@ -78,7 +78,7 @@ export async function rtkRoutes(app: FastifyInstance) {
    * Body: { text: string }
    * Or sends a default sample if no text provided.
    */
-  app.post('/v1/rtk/test', {
+  app.post('/test', {
     schema: {
       body: {
         type: 'object',

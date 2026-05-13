@@ -216,10 +216,10 @@ await app.register(adminRoutes, { prefix: '/v1/admin' });
 await app.register(wsRoutes, { prefix: '/ws' });
 await app.register(rtkRoutes, { prefix: '/v1/rtk' });
 await app.register(webhookRoutes, { prefix: '/v1/webhooks' });
-await app.register(abTestingRoutes, { prefix: '/v1/ab-testing' });
+await app.register(abTestingRoutes, { prefix: '/v1/ab-tests' });
 await app.register(modelAliasRoutes, { prefix: '/v1/model-aliases' });
 await app.register(pricingRoutes, { prefix: '/v1/pricing' });
-await app.register(cloudSyncRoutes, { prefix: '/v1/cloud-sync' });
+await app.register(cloudSyncRoutes, { prefix: '/v1/sync' });
 
 // Serve dashboard static files (single-port self-hosted mode)
 const __dirname = dirname(fileURLToPath(import.meta.url));

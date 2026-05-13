@@ -123,7 +123,7 @@ async function forwardToProvider(
       throw new Error(`Provider error (${response.status}): ${error}`);
     }
 
-    return await response.json();
+    return await response.json() as any;
   } catch (err) {
     clearTimeout(timeout);
     throw err;
@@ -167,7 +167,7 @@ async function forwardGetToProvider(
       throw new Error(`Provider error (${response.status}): ${error}`);
     }
 
-    return await response.json();
+    return await response.json() as any;
   } catch (err) {
     clearTimeout(timeout);
     throw err;
@@ -219,7 +219,7 @@ export async function capabilityRoutes(app: FastifyInstance) {
         });
 
         if (response.ok) {
-          const result = await response.json();
+          const result = await response.json() as any;
           metricsCollector.record({
             id: crypto.randomUUID(),
             timestamp: new Date(),
@@ -387,7 +387,7 @@ export async function capabilityRoutes(app: FastifyInstance) {
       return reply.status(502).send({ error: 'STT failed', message: err });
     }
 
-    const result = await response.json();
+    const result = await response.json() as any;
     const body = request.body as any;
 
     metricsCollector.record({
@@ -496,7 +496,7 @@ export async function capabilityRoutes(app: FastifyInstance) {
       let result: any;
 
       if (contentType.includes('application/json')) {
-        result = { type: 'json', data: await response.json() };
+        result = { type: 'json', data: await response.json() as any };
       } else {
         const text = await response.text();
         // Truncate if too large

@@ -248,7 +248,7 @@ async function executeComparison(
       };
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     const content = data.choices?.[0]?.message?.content || '';
     const usage = data.usage;
 

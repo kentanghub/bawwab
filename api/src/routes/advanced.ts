@@ -23,31 +23,6 @@ export async function advancedRoutes(app: FastifyInstance) {
     return { results };
   });
 
-  // ─── Webhooks (legacy paths, delegates to webhookManager) ───
-  app.get('/webhooks', async () => {
-    return { subscriptions: webhookManager.list() };
-  });
-
-  app.post('/webhooks', async (request, reply) => {
-    const body = request.body as any;
-    if (!body.url || !body.events || !Array.isArray(body.events)) {
-      return reply.status(400).send({ error: 'url and events[] required' });
-    }
-    const sub = webhookManager.subscribe({
-      url: body.url,
-      events: body.events,
-      secret: body.secret,
-    });
-    return reply.status(201).send(sub);
-  });
-
-  app.delete('/webhooks/:id', async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const ok = webhookManager.unsubscribe(id);
-    if (!ok) return reply.status(404).send({ error: 'Not found' });
-    return { success: true };
-  });
-
   // ─── Content Safety Test ───
   app.post('/safety/scan', async (request) => {
     const body = request.body as any;
