@@ -247,6 +247,36 @@ db.exec(`
     count INTEGER NOT NULL DEFAULT 0
   );
 
+  -- Quota tracker: per-provider quota config
+  CREATE TABLE IF NOT EXISTS provider_quotas (
+    provider_id TEXT PRIMARY KEY,
+    provider_name TEXT,
+    daily_limit_requests INTEGER NOT NULL DEFAULT 10000,
+    monthly_limit_requests INTEGER NOT NULL DEFAULT 100000,
+    daily_limit_tokens INTEGER NOT NULL DEFAULT 10000000,
+    monthly_limit_tokens INTEGER NOT NULL DEFAULT 100000000,
+    daily_limit_cost REAL NOT NULL DEFAULT 50.0,
+    monthly_limit_cost REAL NOT NULL DEFAULT 500.0,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Quota tracker: per-provider usage counters
+  CREATE TABLE IF NOT EXISTS provider_usage (
+    provider_id TEXT PRIMARY KEY,
+    requests_today INTEGER NOT NULL DEFAULT 0,
+    requests_this_month INTEGER NOT NULL DEFAULT 0,
+    tokens_in_today INTEGER NOT NULL DEFAULT 0,
+    tokens_out_today INTEGER NOT NULL DEFAULT 0,
+    tokens_in_this_month INTEGER NOT NULL DEFAULT 0,
+    tokens_out_this_month INTEGER NOT NULL DEFAULT 0,
+    cost_today REAL NOT NULL DEFAULT 0,
+    cost_this_month REAL NOT NULL DEFAULT 0,
+    day_key TEXT NOT NULL DEFAULT '',
+    month_key TEXT NOT NULL DEFAULT '',
+    last_used_at TEXT,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   -- Cloud sync state
   CREATE TABLE IF NOT EXISTS cloud_sync (
     id INTEGER PRIMARY KEY CHECK (id = 1),

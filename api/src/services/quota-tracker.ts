@@ -1,20 +1,21 @@
 /**
- * Real-time Quota Tracker
+ * Real-time Quota Tracker — SQLite-backed
  * Tracks per-provider usage (requests, tokens, cost) in real-time.
  * Provides quota limits and alerts when approaching limits.
  */
 
 import { logger } from './logger.js';
+import { getDb } from './database.js';
 
 export interface ProviderQuota {
   providerId: string;
   providerName: string;
-  dailyLimit: number;      // Max requests per day
-  monthlyLimit: number;    // Max requests per month
-  dailyTokens: number;     // Max tokens per day
-  monthlyTokens: number;   // Max tokens per month
-  dailyCost: number;       // Max cost per day ($)
-  monthlyCost: number;     // Max cost per month ($)
+  dailyLimit: number;
+  monthlyLimit: number;
+  dailyTokens: number;
+  monthlyTokens: number;
+  dailyCost: number;
+  monthlyCost: number;
 }
 
 export interface ProviderUsage {
@@ -30,83 +31,49 @@ export interface ProviderUsage {
   lastUsed: Date;
 }
 
-// Default quotas (can be overridden per provider via env vars)
 const DEFAULT_DAILY_REQ_LIMIT = 10000;
 const DEFAULT_MONTHLY_REQ_LIMIT = 100000;
-const DEFAULT_DAILY_TOKEN_LIMIT = 10000000; // 10M tokens
-const DEFAULT_MONTHLY_TOKEN_LIMIT = 100000000; // 100M tokens
-const DEFAULT_DAILY_COST_LIMIT = 50; // $50/day
-const DEFAULT_MONTHLY_COST_LIMIT = 500; // $500/month
+const DEFAULT_DAILY_TOKEN_LIMIT = 10000000;
+const DEFAULT_MONTHLY_TOKEN_LIMIT = 100000000;
+const DEFAULT_DAILY_COST_LIMIT = 50;
+const DEFAULT_MONTHLY_COST_LIMIT = 500;
+
+function getDayKey(): string {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function getMonthKey(): string {
+  return new Date().toISOString().slice(0, 7); // YYYY-MM
+}
 
 class QuotaTracker {
-  private quotas: Map<string, ProviderQuota> = new Map();
-  private usage: Map<string, ProviderUsage> = new Map();
-  private dayStart: Date;
-  private monthStart: Date;
-
-  constructor() {
-    this.dayStart = this.getDayStart();
-    this.monthStart = this.getMonthStart();
-  }
-
-  private getDayStart(): Date {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-
-  private getMonthStart(): Date {
-    const d = new Date();
-    d.setDate(1);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-
-  private resetIfNeeded() {
-    const now = new Date();
-    const currentDayStart = this.getDayStart();
-    const currentMonthStart = this.getMonthStart();
-
-    if (currentDayStart > this.dayStart) {
-      // New day - reset daily counters
-      Array.from(this.usage.values()).forEach(usage => {
-        usage.requestsToday = 0;
-        usage.tokensInToday = 0;
-        usage.tokensOutToday = 0;
-        usage.costToday = 0;
-      });
-      this.dayStart = currentDayStart;
-      logger.info('[QuotaTracker] Daily counters reset');
-    }
-
-    if (currentMonthStart > this.monthStart) {
-      // New month - reset monthly counters
-      Array.from(this.usage.values()).forEach(usage => {
-        usage.requestsThisMonth = 0;
-        usage.tokensInThisMonth = 0;
-        usage.tokensOutThisMonth = 0;
-        usage.costThisMonth = 0;
-      });
-      this.monthStart = currentMonthStart;
-      logger.info('[QuotaTracker] Monthly counters reset');
-    }
-  }
-
   /**
    * Set quota for a provider
    */
   setQuota(providerId: string, providerName: string, overrides?: Partial<ProviderQuota>) {
-    const quota: ProviderQuota = {
-      providerId,
-      providerName,
-      dailyLimit: overrides?.dailyLimit || DEFAULT_DAILY_REQ_LIMIT,
-      monthlyLimit: overrides?.monthlyLimit || DEFAULT_MONTHLY_REQ_LIMIT,
-      dailyTokens: overrides?.dailyTokens || DEFAULT_DAILY_TOKEN_LIMIT,
-      monthlyTokens: overrides?.monthlyTokens || DEFAULT_MONTHLY_TOKEN_LIMIT,
-      dailyCost: overrides?.dailyCost || DEFAULT_DAILY_COST_LIMIT,
-      monthlyCost: overrides?.monthlyCost || DEFAULT_MONTHLY_COST_LIMIT,
-    };
-    this.quotas.set(providerId, quota);
+    const db = getDb();
+    db.prepare(`
+      INSERT INTO provider_quotas (provider_id, provider_name, daily_limit_requests, monthly_limit_requests,
+        daily_limit_tokens, monthly_limit_tokens, daily_limit_cost, monthly_limit_cost)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(provider_id) DO UPDATE SET
+        provider_name = excluded.provider_name,
+        daily_limit_requests = excluded.daily_limit_requests,
+        monthly_limit_requests = excluded.monthly_limit_requests,
+        daily_limit_tokens = excluded.daily_limit_tokens,
+        monthly_limit_tokens = excluded.monthly_limit_tokens,
+        daily_limit_cost = excluded.daily_limit_cost,
+        monthly_limit_cost = excluded.monthly_limit_cost,
+        updated_at = datetime('now')
+    `).run(
+      providerId, providerName,
+      overrides?.dailyLimit ?? DEFAULT_DAILY_REQ_LIMIT,
+      overrides?.monthlyLimit ?? DEFAULT_MONTHLY_REQ_LIMIT,
+      overrides?.dailyTokens ?? DEFAULT_DAILY_TOKEN_LIMIT,
+      overrides?.monthlyTokens ?? DEFAULT_MONTHLY_TOKEN_LIMIT,
+      overrides?.dailyCost ?? DEFAULT_DAILY_COST_LIMIT,
+      overrides?.monthlyCost ?? DEFAULT_MONTHLY_COST_LIMIT,
+    );
   }
 
   /**
@@ -119,66 +86,80 @@ class QuotaTracker {
     tokensOut: number,
     cost: number
   ): { allowed: boolean; warnings: string[] } {
-    this.resetIfNeeded();
+    const db = getDb();
+    const dayKey = getDayKey();
+    const monthKey = getMonthKey();
 
-    // Initialize usage if not exists
-    if (!this.usage.has(providerId)) {
-      this.usage.set(providerId, {
-        providerId,
-        requestsToday: 0,
-        requestsThisMonth: 0,
-        tokensInToday: 0,
-        tokensOutToday: 0,
-        tokensInThisMonth: 0,
-        tokensOutThisMonth: 0,
-        costToday: 0,
-        costThisMonth: 0,
-        lastUsed: new Date(),
-      });
+    // Ensure quota exists
+    this.setQuota(providerId, providerName);
+
+    // Ensure usage row exists and reset if day/month changed
+    const existing = db.prepare('SELECT * FROM provider_usage WHERE provider_id = ?').get(providerId) as any;
+    if (!existing) {
+      db.prepare(`
+        INSERT INTO provider_usage (provider_id, day_key, month_key)
+        VALUES (?, ?, ?)
+      `).run(providerId, dayKey, monthKey);
+    } else {
+      // Reset daily counters if new day
+      if (existing.day_key !== dayKey) {
+        db.prepare(`
+          UPDATE provider_usage SET requests_today = 0, tokens_in_today = 0, tokens_out_today = 0,
+            cost_today = 0, day_key = ? WHERE provider_id = ?
+        `).run(dayKey, providerId);
+      }
+      // Reset monthly counters if new month
+      if (existing.month_key !== monthKey) {
+        db.prepare(`
+          UPDATE provider_usage SET requests_this_month = 0, tokens_in_this_month = 0,
+            tokens_out_this_month = 0, cost_this_month = 0, month_key = ? WHERE provider_id = ?
+        `).run(monthKey, providerId);
+      }
     }
 
-    // Initialize quota if not exists
-    if (!this.quotas.has(providerId)) {
-      this.setQuota(providerId, providerName);
-    }
+    // Get current usage (after potential reset)
+    const usage = db.prepare('SELECT * FROM provider_usage WHERE provider_id = ?').get(providerId) as any;
+    const quota = db.prepare('SELECT * FROM provider_quotas WHERE provider_id = ?').get(providerId) as any;
 
-    const usage = this.usage.get(providerId)!;
-    const quota = this.quotas.get(providerId)!;
     const warnings: string[] = [];
 
-    // Check limits before recording
-    if (usage.requestsToday + 1 > quota.dailyLimit) {
+    // Check limits
+    if (usage.requests_today + 1 > quota.daily_limit_requests) {
       warnings.push(`Daily request limit exceeded for ${providerName}`);
     }
-    if (usage.requestsThisMonth + 1 > quota.monthlyLimit) {
+    if (usage.requests_this_month + 1 > quota.monthly_limit_requests) {
       warnings.push(`Monthly request limit exceeded for ${providerName}`);
     }
-    if (usage.tokensInToday + usage.tokensOutToday + tokensIn + tokensOut > quota.dailyTokens) {
+    if (usage.tokens_in_today + usage.tokens_out_today + tokensIn + tokensOut > quota.daily_limit_tokens) {
       warnings.push(`Daily token limit exceeded for ${providerName}`);
     }
-    if (usage.tokensInThisMonth + usage.tokensOutThisMonth + tokensIn + tokensOut > quota.monthlyTokens) {
+    if (usage.tokens_in_this_month + usage.tokens_out_this_month + tokensIn + tokensOut > quota.monthly_limit_tokens) {
       warnings.push(`Monthly token limit exceeded for ${providerName}`);
     }
-    if (usage.costToday + cost > quota.dailyCost) {
+    if (usage.cost_today + cost > quota.daily_limit_cost) {
       warnings.push(`Daily cost limit exceeded for ${providerName}`);
     }
-    if (usage.costThisMonth + cost > quota.monthlyCost) {
+    if (usage.cost_this_month + cost > quota.monthly_limit_cost) {
       warnings.push(`Monthly cost limit exceeded for ${providerName}`);
     }
 
     // Record usage
-    usage.requestsToday++;
-    usage.requestsThisMonth++;
-    usage.tokensInToday += tokensIn;
-    usage.tokensOutToday += tokensOut;
-    usage.tokensInThisMonth += tokensIn;
-    usage.tokensOutThisMonth += tokensOut;
-    usage.costToday += cost;
-    usage.costThisMonth += cost;
-    usage.lastUsed = new Date();
+    db.prepare(`
+      UPDATE provider_usage SET
+        requests_today = requests_today + 1,
+        requests_this_month = requests_this_month + 1,
+        tokens_in_today = tokens_in_today + ?,
+        tokens_out_today = tokens_out_today + ?,
+        tokens_in_this_month = tokens_in_this_month + ?,
+        tokens_out_this_month = tokens_out_this_month + ?,
+        cost_today = cost_today + ?,
+        cost_this_month = cost_this_month + ?,
+        last_used_at = datetime('now'),
+        updated_at = datetime('now')
+      WHERE provider_id = ?
+    `).run(tokensIn, tokensOut, tokensIn, tokensOut, cost, cost, providerId);
 
     const allowed = warnings.length === 0;
-
     if (!allowed) {
       logger.warn({ providerId, warnings }, '[QuotaTracker] Quota exceeded');
     }
@@ -190,38 +171,73 @@ class QuotaTracker {
    * Get usage for a provider
    */
   getUsage(providerId: string): ProviderUsage | undefined {
-    this.resetIfNeeded();
-    return this.usage.get(providerId);
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM provider_usage WHERE provider_id = ?').get(providerId) as any;
+    if (!row) return undefined;
+
+    return {
+      providerId: row.provider_id,
+      requestsToday: row.requests_today,
+      requestsThisMonth: row.requests_this_month,
+      tokensInToday: row.tokens_in_today,
+      tokensOutToday: row.tokens_out_today,
+      tokensInThisMonth: row.tokens_in_this_month,
+      tokensOutThisMonth: row.tokens_out_this_month,
+      costToday: row.cost_today,
+      costThisMonth: row.cost_this_month,
+      lastUsed: row.last_used_at ? new Date(row.last_used_at) : new Date(),
+    };
   }
 
   /**
    * Get all usage stats
    */
   getAllUsage(): Array<ProviderUsage & { quota: ProviderQuota; utilization: Record<string, number> }> {
-    this.resetIfNeeded();
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT u.*, q.provider_name, q.daily_limit_requests, q.monthly_limit_requests,
+        q.daily_limit_tokens, q.monthly_limit_tokens, q.daily_limit_cost, q.monthly_limit_cost
+      FROM provider_usage u
+      LEFT JOIN provider_quotas q ON u.provider_id = q.provider_id
+      ORDER BY u.provider_id
+    `).all() as any[];
 
-    return Array.from(this.usage.values()).map(u => {
-      const quota = this.quotas.get(u.providerId);
+    return rows.map(row => {
+      const usage: ProviderUsage = {
+        providerId: row.provider_id,
+        requestsToday: row.requests_today,
+        requestsThisMonth: row.requests_this_month,
+        tokensInToday: row.tokens_in_today,
+        tokensOutToday: row.tokens_out_today,
+        tokensInThisMonth: row.tokens_in_this_month,
+        tokensOutThisMonth: row.tokens_out_this_month,
+        costToday: row.cost_today,
+        costThisMonth: row.cost_this_month,
+        lastUsed: row.last_used_at ? new Date(row.last_used_at) : new Date(),
+      };
+
+      const quota: ProviderQuota = {
+        providerId: row.provider_id,
+        providerName: row.provider_name || row.provider_id,
+        dailyLimit: row.daily_limit_requests ?? DEFAULT_DAILY_REQ_LIMIT,
+        monthlyLimit: row.monthly_limit_requests ?? DEFAULT_MONTHLY_REQ_LIMIT,
+        dailyTokens: row.daily_limit_tokens ?? DEFAULT_DAILY_TOKEN_LIMIT,
+        monthlyTokens: row.monthly_limit_tokens ?? DEFAULT_MONTHLY_TOKEN_LIMIT,
+        dailyCost: row.daily_limit_cost ?? DEFAULT_DAILY_COST_LIMIT,
+        monthlyCost: row.monthly_limit_cost ?? DEFAULT_MONTHLY_COST_LIMIT,
+      };
+
       return {
-        ...u,
-        quota: quota || this.quotas.get(u.providerId) || {
-          providerId: u.providerId,
-          providerName: u.providerId,
-          dailyLimit: DEFAULT_DAILY_REQ_LIMIT,
-          monthlyLimit: DEFAULT_MONTHLY_REQ_LIMIT,
-          dailyTokens: DEFAULT_DAILY_TOKEN_LIMIT,
-          monthlyTokens: DEFAULT_MONTHLY_TOKEN_LIMIT,
-          dailyCost: DEFAULT_DAILY_COST_LIMIT,
-          monthlyCost: DEFAULT_MONTHLY_COST_LIMIT,
-        },
+        ...usage,
+        quota,
         utilization: {
-          dailyRequests: quota ? (u.requestsToday / quota.dailyLimit) * 100 : 0,
-          monthlyRequests: quota ? (u.requestsThisMonth / quota.monthlyLimit) * 100 : 0,
-          dailyTokens: quota ? ((u.tokensInToday + u.tokensOutToday) / quota.dailyTokens) * 100 : 0,
-          monthlyTokens: quota ? ((u.tokensInThisMonth + u.tokensOutThisMonth) / quota.monthlyTokens) * 100 : 0,
-          dailyCost: quota ? (u.costToday / quota.dailyCost) * 100 : 0,
-          monthlyCost: quota ? (u.costThisMonth / quota.monthlyCost) * 100 : 0,
-        }
+          dailyRequests: quota.dailyLimit > 0 ? (usage.requestsToday / quota.dailyLimit) * 100 : 0,
+          monthlyRequests: quota.monthlyLimit > 0 ? (usage.requestsThisMonth / quota.monthlyLimit) * 100 : 0,
+          dailyTokens: quota.dailyTokens > 0 ? ((usage.tokensInToday + usage.tokensOutToday) / quota.dailyTokens) * 100 : 0,
+          monthlyTokens: quota.monthlyTokens > 0 ? ((usage.tokensInThisMonth + usage.tokensOutThisMonth) / quota.monthlyTokens) * 100 : 0,
+          dailyCost: quota.dailyCost > 0 ? (usage.costToday / quota.dailyCost) * 100 : 0,
+          monthlyCost: quota.monthlyCost > 0 ? (usage.costThisMonth / quota.monthlyCost) * 100 : 0,
+        },
       };
     });
   }
@@ -230,30 +246,29 @@ class QuotaTracker {
    * Check if provider is within quota
    */
   isWithinQuota(providerId: string): boolean {
-    this.resetIfNeeded();
-    const usage = this.usage.get(providerId);
-    const quota = this.quotas.get(providerId);
+    const db = getDb();
+    const usage = db.prepare('SELECT * FROM provider_usage WHERE provider_id = ?').get(providerId) as any;
+    const quota = db.prepare('SELECT * FROM provider_quotas WHERE provider_id = ?').get(providerId) as any;
 
     if (!usage || !quota) return true;
 
     return (
-      usage.requestsToday < quota.dailyLimit &&
-      usage.requestsThisMonth < quota.monthlyLimit &&
-      (usage.tokensInToday + usage.tokensOutToday) < quota.dailyTokens &&
-      (usage.tokensInThisMonth + usage.tokensOutThisMonth) < quota.monthlyTokens &&
-      usage.costToday < quota.dailyCost &&
-      usage.costThisMonth < quota.monthlyCost
+      usage.requests_today < quota.daily_limit_requests &&
+      usage.requests_this_month < quota.monthly_limit_requests &&
+      (usage.tokens_in_today + usage.tokens_out_today) < quota.daily_limit_tokens &&
+      (usage.tokens_in_this_month + usage.tokens_out_this_month) < quota.monthly_limit_tokens &&
+      usage.cost_today < quota.daily_limit_cost &&
+      usage.cost_this_month < quota.monthly_limit_cost
     );
   }
 
   /**
-   * Reset all counters (for testing)
+   * Reset all counters
    */
   reset(): void {
-    this.usage.clear();
-    this.quotas.clear();
-    this.dayStart = this.getDayStart();
-    this.monthStart = this.getMonthStart();
+    const db = getDb();
+    db.prepare('DELETE FROM provider_usage').run();
+    db.prepare('DELETE FROM provider_quotas').run();
   }
 }
 

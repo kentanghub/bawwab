@@ -253,11 +253,12 @@ app.get('/health', async () => ({
 
 // Error handler
 app.setErrorHandler((error, request, reply) => {
-  app.log.error(error);
-  reply.status(error.statusCode || 500).send({
-    error: error.name,
-    message: error.message,
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+  const err = error as any;
+  app.log.error(err);
+  reply.status(err.statusCode || 500).send({
+    error: err.name || 'InternalError',
+    message: err.message || 'An unexpected error occurred',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 

@@ -1,22 +1,12 @@
 /**
- * Provider Combo Manager
+ * Provider Combo Manager — SQLite-backed
  * Allows users to create custom provider combinations (combos)
  * with ordered fallback priority.
- *
- * Example combo:
- * {
- *   id: 'coding-premium',
- *   name: 'Premium Coding',
- *   providers: [
- *     { providerId: 'anthropic', modelId: 'claude-opus-4', priority: 1 },
- *     { providerId: 'openai', modelId: 'gpt-4o', priority: 2 },
- *     { providerId: 'deepseek', modelId: 'deepseek-v3', priority: 3 }
- *   ]
- * }
  */
 
 import { logger } from './logger.js';
 import { pluginManager } from '../plugins/manager.js';
+import { getDb } from './database.js';
 
 export interface ComboProvider {
   providerId: string;
@@ -28,16 +18,23 @@ export interface ProviderCombo {
   id: string;
   name: string;
   description?: string;
+  kind: string;
   providers: ComboProvider[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// In-memory store (persist to DB in production)
-const comboStore: Map<string, ProviderCombo> = new Map();
+interface ComboRow {
+  id: string;
+  name: string;
+  kind: string;
+  models: string;
+  created_at: string;
+  updated_at: string;
+}
 
-// Default combos (like 9router's built-in combos)
-const DEFAULT_COMBOS: ProviderCombo[] = [
+// Default combos
+const DEFAULT_COMBOS: Array<{ id: string; name: string; description: string; providers: ComboProvider[] }> = [
   {
     id: 'premium-coding',
     name: 'Premium Coding',
@@ -47,8 +44,6 @@ const DEFAULT_COMBOS: ProviderCombo[] = [
       { providerId: 'openai', modelId: 'gpt-4o', priority: 2 },
       { providerId: 'deepseek', modelId: 'deepseek-v3', priority: 3 },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
   },
   {
     id: 'fast-cheap',
@@ -59,8 +54,6 @@ const DEFAULT_COMBOS: ProviderCombo[] = [
       { providerId: 'groq', modelId: 'mixtral-8x7b-32768', priority: 2 },
       { providerId: 'openai', modelId: 'gpt-3.5-turbo', priority: 3 },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
   },
   {
     id: 'open-source',
@@ -71,8 +64,6 @@ const DEFAULT_COMBOS: ProviderCombo[] = [
       { providerId: 'together', modelId: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', priority: 2 },
       { providerId: 'fireworks', modelId: 'accounts/fireworks/models/llama-v3p3-70b-instruct', priority: 3 },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
   },
   {
     id: 'china-local',
@@ -84,8 +75,6 @@ const DEFAULT_COMBOS: ProviderCombo[] = [
       { providerId: 'siliconflow', modelId: 'deepseek-ai/DeepSeek-V3', priority: 3 },
       { providerId: 'qwen', modelId: 'qwen-max', priority: 4 },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
   },
   {
     id: 'unlimited-free',
@@ -96,59 +85,90 @@ const DEFAULT_COMBOS: ProviderCombo[] = [
       { providerId: 'opencode', modelId: 'oc/gpt-4o-mini', priority: 2 },
       { providerId: 'pollinations', modelId: 'openai', priority: 3 },
     ],
-    createdAt: new Date(),
-    updatedAt: new Date(),
   },
 ];
 
+function rowToCombo(row: ComboRow): ProviderCombo {
+  let providers: ComboProvider[] = [];
+  try { providers = JSON.parse(row.models || '[]'); } catch {}
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    providers,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 class ComboManager {
   constructor() {
-    // Load default combos
-    DEFAULT_COMBOS.forEach(c => comboStore.set(c.id, c));
+    this.seedDefaults();
+  }
+
+  /** Insert default combos if they don't exist */
+  private seedDefaults(): void {
+    const db = getDb();
+    const stmt = db.prepare(`
+      INSERT OR IGNORE INTO combos (id, name, kind, models)
+      VALUES (?, ?, 'fallback', ?)
+    `);
+    for (const combo of DEFAULT_COMBOS) {
+      stmt.run(combo.id, combo.name, JSON.stringify(combo.providers));
+    }
     logger.info(`[ComboManager] Loaded ${DEFAULT_COMBOS.length} default combos`);
   }
 
   getCombo(id: string): ProviderCombo | undefined {
-    return comboStore.get(id);
+    const db = getDb();
+    const row = db.prepare('SELECT * FROM combos WHERE id = ?').get(id) as ComboRow | undefined;
+    return row ? rowToCombo(row) : undefined;
   }
 
   getAllCombos(): ProviderCombo[] {
-    return Array.from(comboStore.values()).sort((a, b) =>
-      a.name.localeCompare(b.name)
-    );
+    const db = getDb();
+    const rows = db.prepare('SELECT * FROM combos ORDER BY name').all() as ComboRow[];
+    return rows.map(rowToCombo);
   }
 
-  createCombo(combo: Omit<ProviderCombo, 'createdAt' | 'updatedAt'>): ProviderCombo {
-    const now = new Date();
-    const newCombo: ProviderCombo = {
-      ...combo,
-      createdAt: now,
-      updatedAt: now,
-    };
-    comboStore.set(combo.id, newCombo);
-    logger.info(`[ComboManager] Created combo: ${combo.id}`);
-    return newCombo;
+  createCombo(combo: { id: string; name: string; description?: string; kind?: string; providers: ComboProvider[] }): ProviderCombo {
+    const db = getDb();
+    const id = combo.id;
+    const kind = combo.kind || 'fallback';
+
+    db.prepare(`
+      INSERT INTO combos (id, name, kind, models)
+      VALUES (?, ?, ?, ?)
+    `).run(id, combo.name, kind, JSON.stringify(combo.providers));
+
+    logger.info(`[ComboManager] Created combo: ${id}`);
+    return this.getCombo(id)!;
   }
 
   updateCombo(id: string, updates: Partial<Omit<ProviderCombo, 'id' | 'createdAt'>>): ProviderCombo | undefined {
-    const existing = comboStore.get(id);
+    const existing = this.getCombo(id);
     if (!existing) return undefined;
 
-    const updated: ProviderCombo = {
-      ...existing,
-      ...updates,
-      updatedAt: new Date(),
-    };
-    comboStore.set(id, updated);
-    return updated;
+    const db = getDb();
+    const name = updates.name ?? existing.name;
+    const kind = updates.kind ?? existing.kind;
+    const providers = updates.providers ?? existing.providers;
+
+    db.prepare(`
+      UPDATE combos SET name = ?, kind = ?, models = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(name, kind, JSON.stringify(providers), id);
+
+    return this.getCombo(id);
   }
 
   deleteCombo(id: string): boolean {
-    // Don't allow deleting default combos
     if (DEFAULT_COMBOS.some(c => c.id === id)) {
       throw new Error('Cannot delete default combos');
     }
-    return comboStore.delete(id);
+    const db = getDb();
+    const result = db.prepare('DELETE FROM combos WHERE id = ?').run(id);
+    return result.changes > 0;
   }
 
   /**
@@ -170,11 +190,10 @@ class ComboManager {
       .filter(item => item.provider!.healthStatus.consecutiveFailures < 3);
   }
 
-  /**
-   * Check if combo ID exists
-   */
   hasCombo(id: string): boolean {
-    return comboStore.has(id);
+    const db = getDb();
+    const row = db.prepare('SELECT 1 FROM combos WHERE id = ?').get(id);
+    return !!row;
   }
 }
 
